@@ -22,7 +22,7 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
       - name: Test
-        run: ./gradlew check
+        run: ./gradlew check --stacktrace
 
   test_android:
     runs-on: ubuntu-latest
