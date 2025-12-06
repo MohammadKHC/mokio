@@ -23,7 +23,7 @@ kotlin {
     macosArm64()
     mingwX64 {
         compilations["main"].cinterops.create("extra") {
-            defFile(file("src/mingwMain/cinterop/extra.def"))
+            defFile(file("src/mingwX64Main/cinterop/extra.def"))
         }
     }
     iosArm64()
