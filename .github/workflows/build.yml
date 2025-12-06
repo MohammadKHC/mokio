@@ -26,10 +26,11 @@ jobs:
         run: ./gradlew check
 
       - name: Save Test Reports
+        if: failure()
         uses: actions/upload-artifact@v5
         with:
           name: test-reports
-          path: mokio/build/reports/tests/allTests
+          path: '**/build/reports/tests'
 
   test_android:
     runs-on: ubuntu-latest
@@ -55,7 +56,8 @@ jobs:
           script: ./gradlew androidConnectedCheck
 
       - name: Save Android Test Reports
+        if: failure()
         uses: actions/upload-artifact@v5
         with:
           name: android-test-reports
-          path: build/reports/androidTests/connected/androidMain
+          path: '**/build/reports/androidTests'
