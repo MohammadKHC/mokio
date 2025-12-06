@@ -11,6 +11,7 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ ubuntu-latest, windows-latest, macos-latest ]
 
@@ -20,17 +21,18 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
-      - name: Test (All platforms except Android)
+      - name: Test
         run: ./gradlew check
 
   test_android:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         api-level: [ 21, 36 ]
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Enable KVM
         run: |
@@ -38,7 +40,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Test Android
+      - name: Android Test
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api-level }}
