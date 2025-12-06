@@ -8,8 +8,11 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  build:
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      packages: write
     strategy:
       fail-fast: false
       matrix:
@@ -32,7 +35,13 @@ jobs:
           name: test-reports-${{ matrix.os }}
           path: '**/build/reports/tests'
 
-  test_android:
+      - name: Publish to GitHub Packages
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: ./gradlew publishAllPublicationsToGitHubPackagesRepository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  test-android:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
