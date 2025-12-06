@@ -26,9 +26,6 @@ kotlin {
             defFile(file("src/mingwX64Main/cinterop/extra.def"))
         }
     }
-    iosArm64()
-    iosX64()
-    iosSimulatorArm64()
 
     @OptIn(ExperimentalKotlinGradlePluginApi::class)
     applyDefaultHierarchyTemplate {
