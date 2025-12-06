@@ -13,7 +13,7 @@ class ProcessTest {
     fun outputTest() {
         val process = Process(shellCommand("echo Hello, world!"))
         val output = process.inputSource.buffer().use(BufferedSource::readUtf8Line)
-        assertEquals("Hello, wodrld!", output)
+        assertEquals("Hello, world!", output)
     }
 
     private fun shellCommand(command: String) =
