@@ -1,7 +1,8 @@
 package com.mohammedkhc.io
 
-import okio.*
-import okio.Path.Companion.toPath
+import okio.FileSystem
+import okio.Path
+import okio.SYSTEM
 import kotlin.time.Instant
 
 data class Stat(
