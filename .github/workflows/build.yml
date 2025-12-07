@@ -80,7 +80,6 @@ jobs:
           java-version: '21'
 
       - name: Publish to GitHub Packages
-        if: ${{ matrix.os == 'ubuntu-latest' }}
         run: ./gradlew publishAllPublicationsToGitHubPackagesRepository
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
