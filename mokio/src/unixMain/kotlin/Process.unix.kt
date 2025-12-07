@@ -76,7 +76,7 @@ actual class Process actual constructor(
         if (errorFd != null) FileDescriptor(errorFd)
         else Buffer()
 
-    actual fun wait(): Int = memScoped {
+    actual fun waitFor(): Int = memScoped {
         val status = alloc<IntVar>()
         waitpid(pid.toInt(), status.ptr, 0)
         closeIO()

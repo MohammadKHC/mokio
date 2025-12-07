@@ -101,7 +101,7 @@ actual class Process actual constructor(
         if (errorHandle != null) FileDescriptor(errorHandle)
         else Buffer()
 
-    actual fun wait(): Int {
+    actual fun waitFor(): Int {
         WaitForSingleObject(handle, INFINITE)
         val exitCode = memScoped {
             alloc<UIntVar> {

@@ -15,7 +15,7 @@ expect class Process(
     val inputSource: Source
     val outputSink: Sink
     val errorSource: Source
-    fun wait(): Int
+    fun waitFor(): Int
     fun destroy(force: Boolean = false)
 }
 

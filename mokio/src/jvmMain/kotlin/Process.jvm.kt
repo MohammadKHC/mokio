@@ -24,7 +24,7 @@ actual class Process actual constructor(
     actual val inputSource = process.inputStream.source()
     actual val outputSink = process.outputStream.sink()
     actual val errorSource = process.errorStream.source()
-    actual fun wait() = process.waitFor()
+    actual fun waitFor() = process.waitFor()
 
     actual fun destroy(force: Boolean) {
         if (force) process.destroyForcibly()
