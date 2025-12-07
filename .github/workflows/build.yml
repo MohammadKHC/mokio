@@ -8,11 +8,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  test:
+    name: Test
     runs-on: ${{ matrix.os }}
-    permissions:
-      contents: read
-      packages: write
     strategy:
       fail-fast: false
       matrix:
@@ -35,13 +33,8 @@ jobs:
           name: test-reports-${{ matrix.os }}
           path: '**/build/reports/tests'
 
-      - name: Publish to GitHub Packages
-        if: ${{ matrix.os == 'ubuntu-latest' }}
-        run: ./gradlew publishAllPublicationsToGitHubPackagesRepository
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   test-android:
+    name: Test (Android)
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -70,3 +63,24 @@ jobs:
         with:
           name: test-reports-android-${{ matrix.api-level }}
           path: '**/build/reports/androidTests'
+
+  publish:
+    name: Publish to GitHub Packages
+    runs-on: ubuntu-latest
+    needs: [ test, test-android ]
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Publish to GitHub Packages
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: ./gradlew publishAllPublicationsToGitHubPackagesRepository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
