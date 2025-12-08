@@ -44,7 +44,10 @@ class ProcessTest {
     fun directoryTest() {
         val tempPath = createTempDirectory()
             .let(FileSystem.SYSTEM::canonicalize)
-        val process = Process(pwdCommand, tempPath)
+        val process = Process(
+            shellCommand(if (isUnixLikeOs) "pwd" else "cd"),
+            directory = tempPath
+        )
         val input = process.inputSource.buffer()
         assertEquals(tempPath.toString(), input.readUtf8().trimEnd())
         assertEquals(0, process.waitFor())
@@ -53,11 +56,14 @@ class ProcessTest {
     @Test
     fun environmentTest() {
         val process = Process(
-            printenvCommand,
-            environment = mapOf("RANDOM_ENV" to "YES")
+            shellCommand(
+                if (isUnixLikeOs) $$"echo $RANDOM_ENV"
+                else "echo %RANDOM_ENV%"
+            ),
+            environment = mapOf("RANDOM_ENV" to "VALID_RANDOM_ENV")
         )
         val input = process.inputSource.buffer()
-        assertContains(input.readUtf8().trimEnd().lines(), "RANDOM_ENV=YES")
+        assertContains(input.readUtf8().trimEnd(), "VALID_RANDOM_ENV")
         assertEquals(0, process.waitFor())
     }
 
@@ -86,12 +92,4 @@ class ProcessTest {
         return if (isUnixLikeOs) listOf("sh", file.toString())
         else listOf("cmd.exe", "/c", file.toString())
     }
-
-    private val printenvCommand get() =
-        if (isUnixLikeOs) listOf("printenv")
-        else listOf("cmd.exe", "/c", "set")
-
-    private val pwdCommand get() =
-        if (isUnixLikeOs) listOf("pwd")
-        else listOf("cmd.exe", "/c", "cd")
 }
