@@ -55,6 +55,31 @@ class ProcessTest {
 
     @Test
     fun environmentTest() {
+        error(buildString {
+            runCatching {
+                Process(
+                    shellCommand($$"echo $PATH"),
+                    environment = mapOf("RANDOM_ENV" to "VALID_RANDOM_ENV")
+                ).inputSource.buffer().readUtf8().run { append("one env: $this") }
+            }
+            runCatching {
+                Process(
+                    shellCommand($$"echo $PATH"),
+                    //environment = mapOf("RANDOM_ENV" to "VALID_RANDOM_ENV")
+                ).inputSource.buffer().readUtf8().run { append("one no: $this") }
+            }
+            runCatching {
+                Process(
+                    shellCommand("printenv"),
+                    environment = mapOf("RANDOM_ENV" to "VALID_RANDOM_ENV")
+                ).inputSource.buffer().readUtf8().run { append("printenv env: $this") }
+            }
+            runCatching {
+                Process(
+                    shellCommand("printenv")
+                ).inputSource.buffer().readUtf8().run { append("printenv no: $this") }
+            }
+        })
         val process = Process(
             shellCommand(
                 if (isUnixLikeOs) $$"echo $RANDOM_ENV"
