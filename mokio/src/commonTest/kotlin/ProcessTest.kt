@@ -43,10 +43,8 @@ class ProcessTest {
     @Test
     fun directoryTest() {
         val tempPath = createTempDirectory()
-        val process = Process(
-            shellCommand(if (isUnixLikeOs) "pwd" else "cd"),
-            directory = tempPath
-        )
+            .let(FileSystem.SYSTEM::canonicalize)
+        val process = Process(pwdCommand, tempPath)
         val input = process.inputSource.buffer()
         assertEquals(tempPath.toString(), input.readUtf8().trimEnd())
         assertEquals(0, process.waitFor())
@@ -55,7 +53,7 @@ class ProcessTest {
     @Test
     fun environmentTest() {
         val process = Process(
-            shellCommand(if (isUnixLikeOs) "printenv" else "set"),
+            printenvCommand,
             environment = mapOf("RANDOM_ENV" to "YES")
         )
         val input = process.inputSource.buffer()
@@ -88,4 +86,12 @@ class ProcessTest {
         return if (isUnixLikeOs) listOf("sh", file.toString())
         else listOf("cmd.exe", "/c", file.toString())
     }
+
+    private val printenvCommand get() =
+        if (isUnixLikeOs) listOf("printenv")
+        else listOf("cmd.exe", "/c", "set")
+
+    private val pwdCommand get() =
+        if (isUnixLikeOs) listOf("pwd")
+        else listOf("cmd.exe", "/c", "cd")
 }
