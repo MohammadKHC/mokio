@@ -25,8 +25,10 @@ internal actual class FileDescriptorHandle(private val fd: Int) {
         return result
     }
 
-    actual fun flush() =
-        fsync(fd).ensureSuccess()
+    actual fun flush() {
+        // Not supported, because we don't use fopen/fdopen
+        // fsync(fd).ensureSuccess()
+    }
 
     actual fun close() =
         platform.posix.close(fd).ensureSuccess()
