@@ -12,7 +12,7 @@ kotlin {
     androidLibrary {
         namespace = "com.mohammedkhc.io"
         compileSdk = 36
-        minSdk = 21
+        minSdk = 23
         withDeviceTestBuilder {
             sourceSetTreeName = "test"
         }.configure {
