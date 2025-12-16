@@ -23,3 +23,11 @@ internal inline fun Int.ensureSuccess() {
         throw errnoToIOException()
     }
 }
+
+@Suppress("NOTHING_TO_INLINE")
+internal inline fun Int.checkNotNegativeOne(): Int {
+    if (this == -1) {
+        throw errnoToIOException()
+    }
+    return this
+}

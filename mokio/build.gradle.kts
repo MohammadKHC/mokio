@@ -43,6 +43,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            implementation(libs.kotlin.coroutines)
             implementation(libs.okio)
         }
         commonTest.dependencies {

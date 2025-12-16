@@ -1,11 +1,13 @@
 [versions]
 agp = "8.13.1"
 androidx-test = "1.7.0"
+kotlinx-coroutines = "1.10.2"
 kotlin = "2.2.21"
 okio = "3.16.4"
 
 [libraries]
 androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidx-test" }
+kotlin-coroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
 okio-fakefilesystem = { module = "com.squareup.okio:okio-fakefilesystem", version.ref = "okio" }
