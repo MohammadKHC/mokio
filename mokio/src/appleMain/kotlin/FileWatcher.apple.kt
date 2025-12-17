@@ -26,6 +26,16 @@ actual class FileWatcher actual constructor(
         val pathsToWatch = CFArrayCreate(null, createValues(1) {
             value = CFStringCreateWithCString(null, path.toString(), kCFStringEncodingUTF8)
         }, 1, null)
+        val callback = {
+            streamRef: FSEventStreamRef?,
+            clientCallBackInfo: COpaquePointer?,
+            numEvents: ULong,
+            eventPaths: COpaquePointer?,
+            eventFlags: CPointer<UIntVar>?,
+            eventIds: CPointer<ULongVar>? ->
+            error("$streamRef, $clientCallBackInfo, $numEvents, $eventPaths, $eventFlags, $eventIds")
+            Unit
+        }
         streamRef = FSEventStreamCreate(
             allocator = null,
             callback = staticCFunction(::dispatchEvents),
@@ -40,17 +50,6 @@ actual class FileWatcher actual constructor(
             dispatch_queue_create("FileWatcher", null)
         )
         FSEventStreamStart(streamRef)
-    }
-
-    fun dispatchEvents(
-        streamRef: FSEventStreamRef?,
-        clientCallBackInfo: COpaquePointer?,
-        numEvents: ULong,
-        eventPaths: COpaquePointer?,
-        eventFlags: CPointer<UIntVar>?,
-        eventIds: CPointer<ULongVar>?
-    ) {
-        error("$streamRef, $clientCallBackInfo, $numEvents, $eventPaths, $eventFlags, $eventIds")
     }
 
     actual fun stopWatching() {
