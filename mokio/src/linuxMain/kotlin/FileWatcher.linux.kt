@@ -1,30 +1,16 @@
 package com.mohammedkhc.io
 
-import kotlinx.cinterop.ByteVar
-import kotlinx.cinterop.UShortVar
-import kotlinx.cinterop.alignOf
-import kotlinx.cinterop.convert
-import kotlinx.cinterop.getRawPointer
-import kotlinx.cinterop.interpretCPointer
-import kotlinx.cinterop.interpretPointed
-import kotlinx.cinterop.memScoped
-import kotlinx.cinterop.ptr
-import kotlinx.cinterop.reinterpret
-import kotlinx.cinterop.sizeOf
-import kotlinx.cinterop.toKString
+import kotlinx.cinterop.*
+import okio.FileSystem
 import okio.Path
-import platform.linux.IN_ATTRIB
-import platform.linux.IN_CREATE
-import platform.linux.IN_DELETE
-import platform.linux.IN_MODIFY
-import platform.linux.IN_MOVED_FROM
-import platform.linux.IN_MOVED_TO
-import platform.linux.inotify_add_watch
-import platform.linux.inotify_event
-import platform.linux.inotify_init
-import platform.linux.inotify_rm_watch
+import platform.linux.*
+import platform.posix.EBADF
+import platform.posix.EINTR
 import platform.posix.NAME_MAX
+import platform.posix.close
+import platform.posix.errno
 import platform.posix.read
+import kotlin.sequences.forEach
 
 actual class FileWatcher actual constructor(
     private val path: Path,
@@ -32,88 +18,111 @@ actual class FileWatcher actual constructor(
     events: Set<FileChangeEvent>,
     private val onEvent: FileEventListener
 ) {
+    private val inotifyFd = inotify_init1(IN_CLOEXEC)
+        .checkNotNegativeOne()
     private val eventsMask = events.fold(0) { acc, it ->
-        acc or it.notifyEventMask
+        acc or it.inotifyEventMask
     }
 
-    private var fd: Int? = null
+    private val watchers = mutableMapOf<Int, Watcher>()
+    private val mutex = Mutex()
 
-    actual fun startWatching() = startWatching(this)
-    actual fun stopWatching() = stopWatching(this)
-
-    private fun dispatchEvent(event: Int, child: String?) {
-        onEvent(
-            event.changeEvent ?: return,
-            child?.let(path::resolve) ?: path
-        )
+    actual fun startWatching() = mutex.withLock {
+        watchPath(path)
+        if (recursive) {
+            FileSystem.SYSTEM
+                .listRecursively(path)
+                .filter(FileSystem.SYSTEM::isDirectory)
+                .forEach(::watchPath)
+        }
     }
 
-    private val FileChangeEvent.notifyEventMask
-        get() = when (this) {
-            FileChangeEvent.Create -> IN_CREATE or IN_MOVED_TO
-            FileChangeEvent.Modify -> IN_MODIFY or IN_ATTRIB
-            FileChangeEvent.Delete -> IN_DELETE or IN_MOVED_FROM
-        }
+    private fun watchPath(path: Path) {
+        val wd = inotify_add_watch(
+            inotifyFd,
+            path.toString(),
+            eventsMask.toUInt()
+        ).checkNotNegativeOne()
+        watchers[wd] = Watcher(path) { event, resolvedPath ->
+            if (recursive && event.mask.toInt() and IN_ISDIR != 0) {
+                when (event.changeEvent) {
+                    FileChangeEvent.Create -> mutex.withLock {
+                        watchPath(resolvedPath)
+                    }
 
-    private val Int.changeEvent
-        get() = when (this and eventsMask) {
-            IN_CREATE, IN_MOVED_TO -> FileChangeEvent.Create
-            IN_MODIFY, IN_ATTRIB -> FileChangeEvent.Modify
-            IN_DELETE, IN_MOVED_FROM -> FileChangeEvent.Delete
-            else -> null
-        }
-
-    private companion object {
-        var inotifyFd = -1
-        var watchers = mutableMapOf<Int, FileWatcher>()
-        val mutex = Mutex()
-        var watcherThread: Thread? = null
-
-        fun startWatching(watcher: FileWatcher) {
-            val wfd = inotify_add_watch(
-                inotifyFd,
-                watcher.path.toString(),
-                watcher.eventsMask.toUInt()
-            ).checkNotNegativeOne()
-            watcher.fd = wfd
-            mutex.withLock { watchers[wfd] = watcher }
-            if (watcherThread == null) {
-                watchEvents()
-            }
-        }
-
-        fun stopWatching(watcher: FileWatcher) {
-            val wfd = watcher.fd ?: return
-            inotify_rm_watch(inotifyFd, wfd)
-                .ensureSuccess()
-            watcher.fd = null
-            mutex.withLock { watchers -= wfd }
-        }
-
-        fun watchEvents() {
-            watcherThread = thread("FileWatcher") {
-                memScoped {
-                    val bufferSize = 512 // sizeOf<inotify_event>() + NAME_MAX + 1
-                    val buffer = alloc(bufferSize, alignOf<inotify_event>())
-                    while (watchers.isNotEmpty()) {
-                        val length = read(inotifyFd, buffer.reinterpret<ByteVar>().ptr, bufferSize.convert())
-                        if (length == -1L) {
-                            throw errnoToIOException()
-                        }
-                        if (length < sizeOf<inotify_event>()) {
-                            error("inotify got a short event.")
-                        }
-                        var offset = 0L
-                        while (offset < length) {
-                            val event = interpretPointed<inotify_event>(buffer.rawPtr + offset)
-                            val path = if (event.len > 0u) event.name.toKString() else null
-                            mutex.withLock { watchers[event.wd] }
-                                ?.dispatchEvent(event.mask.toInt(), path)
-                            offset += sizeOf<inotify_event>() + event.len.toLong()
+                    FileChangeEvent.Delete -> mutex.withLock {
+                        watchers.entries.removeAll {
+                            if (it.value.path.startsWith(resolvedPath)) {
+                                inotify_rm_watch(inotifyFd, it.key)
+                                    .ensureSuccess()
+                                true
+                            } else false
                         }
                     }
+
+                    else -> {}
                 }
             }
+            onEvent(event.changeEvent ?: return@Watcher, resolvedPath)
         }
+    }
+
+    actual fun stopWatching() = mutex.withLock {
+        watchers.keys.forEach {
+            inotify_rm_watch(inotifyFd, it)
+                .ensureSuccess()
+        }
+        watchers.clear()
+        close(inotifyFd).ensureSuccess()
+    }
+
+    private fun watch() = memScoped {
+        val buffer = alloc(inotifyBufferSize, alignOf<inotify_event>())
+        while (watchers.isNotEmpty()) {
+            val length = read(inotifyFd, buffer.reinterpret<ByteVar>().ptr, inotifyBufferSize.convert())
+            if (length == -1L) {
+                if (errno == EBADF || errno == EINTR)
+                    break
+                throw errnoToIOException()
+            }
+            if (length < sizeOf<inotify_event>()) {
+                error("inotify got a short event.")
+            }
+            var offset = 0L
+            while (offset < length) {
+                val event = interpretPointed<inotify_event>(buffer.rawPtr + offset)
+                mutex.withLock { watchers[event.wd] }?.apply {
+                    val name = if (event.len > 0u) event.name.toKString() else null
+                    onRawEvent(event, name?.let(path::resolve) ?: path)
+                }
+                offset += sizeOf<inotify_event>() + event.len.toLong()
+            }
+        }
+    }
+
+    private data class Watcher(
+        val path: Path,
+        val onRawEvent: (inotify_event, resolvedPath: Path) -> Unit
+    )
+
+    private companion object {
+        val inotifyBufferSize = 5 * (sizeOf<inotify_event>() + NAME_MAX + 1)
+
+        val FileChangeEvent.inotifyEventMask
+            get() = when (this) {
+                FileChangeEvent.Create -> IN_CREATE or IN_MOVED_TO
+                FileChangeEvent.Modify -> IN_MODIFY
+                FileChangeEvent.Attributes -> IN_ATTRIB
+                FileChangeEvent.Delete -> IN_DELETE or IN_MOVED_FROM
+            }
+
+        val inotify_event.changeEvent
+            get() = when {
+                mask.toInt() and IN_CREATE != 0 || mask.toInt() and IN_MOVED_TO != 0 -> FileChangeEvent.Create
+                mask.toInt() and IN_MODIFY != 0 -> FileChangeEvent.Modify
+                mask.toInt() and IN_ATTRIB != 0 -> FileChangeEvent.Attributes
+                mask.toInt() and IN_DELETE != 0 || mask.toInt() and IN_MOVED_FROM != 0 -> FileChangeEvent.Delete
+                else -> null
+            }
     }
 }

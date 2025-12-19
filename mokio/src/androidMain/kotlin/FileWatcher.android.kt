@@ -31,8 +31,11 @@ actual class FileWatcher actual constructor(
                 startWatching(path)
             } else if (event == FileChangeEvent.Delete) {
                 synchronized(observers) {
-                    observers.keys.removeAll {
-                        it.startsWith(path)
+                    observers.entries.removeAll {
+                        if (it.key.startsWith(path)) {
+                            it.value.stopWatching()
+                            true
+                        } else false
                     }
                 }
             }
@@ -55,20 +58,12 @@ actual class FileWatcher actual constructor(
             object : FileObserver(path.toFile(), eventsMask) {
                 override fun onEvent(event: Int, child: String?) =
                     dispatchEvent(event, child?.let(path::resolve) ?: path)
-
-                override fun finalize() {
-                    // Disable GC-triggered stopWatching()
-                }
             }
         } else {
             @Suppress("DEPRECATION")
             object : FileObserver(path.toString(), eventsMask) {
                 override fun onEvent(event: Int, child: String?) =
                     dispatchEvent(event, child?.let(path::resolve) ?: path)
-
-                override fun finalize() {
-                    // Disable GC-triggered stopWatching()
-                }
             }
         }
         observers[path] = observer
@@ -76,25 +71,23 @@ actual class FileWatcher actual constructor(
     }
 
     private companion object {
-        private const val IS_DIR = 0x40000000
+        const val IS_DIR = 0x40000000
 
-        private val FileChangeEvent.inotifyEventMask
+        val FileChangeEvent.inotifyEventMask
             get() = when (this) {
                 FileChangeEvent.Create -> FileObserver.CREATE or FileObserver.MOVED_TO
-                FileChangeEvent.Modify -> FileObserver.MODIFY or FileObserver.ATTRIB
+                FileChangeEvent.Modify -> FileObserver.MODIFY
+                FileChangeEvent.Attributes -> FileObserver.ATTRIB
                 FileChangeEvent.Delete -> FileObserver.DELETE or FileObserver.MOVED_FROM
             }
 
-        private val Int.changeEvent
+        val Int.changeEvent
             get() = when {
-                FileObserver.CREATE in this || FileObserver.MOVED_TO in this -> FileChangeEvent.Create
-                FileObserver.MODIFY in this || FileObserver.ATTRIB in this -> FileChangeEvent.Modify
-                FileObserver.DELETE in this || FileObserver.MOVED_FROM in this -> FileChangeEvent.Delete
+                and(FileObserver.CREATE) != 0 || and(FileObserver.MOVED_TO) != 0 -> FileChangeEvent.Create
+                and(FileObserver.MODIFY) != 0 -> FileChangeEvent.Modify
+                and(FileObserver.ATTRIB) != 0 -> FileChangeEvent.Attributes
+                and(FileObserver.DELETE) != 0 || and(FileObserver.MOVED_FROM) != 0 -> FileChangeEvent.Delete
                 else -> null
             }
-
-        @Suppress("NOTHING_TO_INLINE")
-        private inline operator fun Int.contains(flag: Int) =
-            this and flag == flag
     }
 }

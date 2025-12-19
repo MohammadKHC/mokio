@@ -15,6 +15,7 @@ expect class FileWatcher(
 enum class FileChangeEvent {
     Create,
     Modify,
+    Attributes,
     Delete
 }
 

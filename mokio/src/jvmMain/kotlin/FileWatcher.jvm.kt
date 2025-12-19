@@ -40,6 +40,7 @@ actual class FileWatcher actual constructor(
             FileChangeEvent.Create -> StandardWatchEventKinds.ENTRY_CREATE
             FileChangeEvent.Modify -> StandardWatchEventKinds.ENTRY_MODIFY
             FileChangeEvent.Delete -> StandardWatchEventKinds.ENTRY_DELETE
+            FileChangeEvent.Attributes -> TODO()
         }
 
     private companion object {
