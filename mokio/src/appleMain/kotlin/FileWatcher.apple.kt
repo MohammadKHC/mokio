@@ -74,11 +74,17 @@ actual class FileWatcher actual constructor(
                 print(" cloned")
             if (flags and kFSEventStreamEventFlagItemInodeMetaMod != 0u)
                 print(" inodeMetaMod")
+            if (flags and kFSEventStreamEventFlagItemChangeOwner != 0u)
+                print(" owner changed.")
             println()
             val event = when {
                 flags and kFSEventStreamEventFlagItemCreated != 0u -> FileChangeEvent.Create
                 flags and kFSEventStreamEventFlagItemModified != 0u -> FileChangeEvent.Modify
-                flags and kFSEventStreamEventFlagItemXattrMod != 0u -> FileChangeEvent.Attributes
+                flags and kFSEventStreamEventFlagItemInodeMetaMod != 0u
+                        || flags and kFSEventStreamEventFlagItemChangeOwner != 0u
+                        || flags and kFSEventStreamEventFlagItemXattrMod != 0u ->
+                    FileChangeEvent.Attributes
+
                 flags and kFSEventStreamEventFlagItemRemoved != 0u -> FileChangeEvent.Delete
                 else -> continue
             }
