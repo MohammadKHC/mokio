@@ -28,11 +28,6 @@ actual class Process actual constructor(
                 else allocArray<IntVar>(2).also(::pipe)
             when (val forkResult = fork()) {
                 0 -> {
-                    directory?.toString()?.let(::chdir)
-                    environment?.forEach {
-                        setenv(it.key, it.value, 1)
-                    }
-
                     close(childIn[1])
                     dup2(childIn[0], STDIN_FILENO)
                     close(childIn[0])
@@ -49,6 +44,7 @@ actual class Process actual constructor(
                         close(childErr[1])
                     }
 
+                    directory?.toString()?.let(::chdir)
                     exec(command, environment)
                     throw errnoToIOException()
                 }

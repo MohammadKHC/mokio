@@ -6,6 +6,7 @@ import kotlinx.cinterop.sizeOf
 import okio.Path
 import platform.windows.CreateFileW
 import platform.windows.DWORD
+import platform.windows.DWORDVar
 import platform.windows.FILE_FLAG_BACKUP_SEMANTICS
 import platform.windows.FILE_FLAG_OVERLAPPED
 import platform.windows.FILE_LIST_DIRECTORY
@@ -31,14 +32,15 @@ actual class FileWatcher actual constructor(
             dwFlagsAndAttributes = FILE_FLAG_BACKUP_SEMANTICS.toUInt() or FILE_FLAG_OVERLAPPED.toUInt(),
             hTemplateFile = null
         )
-        val buffer = nativeHeap.alloc(sizeOf<DWORD>(), alignOf<DWORD>())
+        // TODO
+        val buffer = nativeHeap.alloc(sizeOf<DWORDVar>(), alignOf<DWORDVar>())
         ReadDirectoryChangesW(
             hDirectory = handle,
             lpBuffer = null,
             nBufferLength = 1u,
             bWatchSubtree = if (recursive) 1 else 0,
-            dwNotifyFilter = 0,
-            lpBytesReturned = 0,
+            dwNotifyFilter = 0u,
+            lpBytesReturned = null,
             lpOverlapped = null,
             lpCompletionRoutine =null
         )
