@@ -59,6 +59,22 @@ actual class FileWatcher actual constructor(
     ) {
         for (i in 0L until eventsCount) {
             val flags = eventFlags[i]
+            print(eventPaths[i]!!.toKString())
+            if (flags and kFSEventStreamEventFlagItemCreated != 0u)
+                print(" created")
+            if (flags and kFSEventStreamEventFlagItemModified != 0u)
+                print(" modified")
+            if (flags and kFSEventStreamEventFlagItemXattrMod != 0u)
+                print(" xattr")
+            if (flags and kFSEventStreamEventFlagItemRemoved != 0u)
+                print(" removed")
+            if (flags and kFSEventStreamEventFlagItemRenamed != 0u)
+                print(" renamed")
+            if (flags and kFSEventStreamEventFlagItemCloned != 0u)
+                print(" cloned")
+            if (flags and kFSEventStreamEventFlagItemInodeMetaMod != 0u)
+                print(" inodeMetaMod")
+            println()
             val event = when {
                 flags and kFSEventStreamEventFlagItemCreated != 0u -> FileChangeEvent.Create
                 flags and kFSEventStreamEventFlagItemModified != 0u -> FileChangeEvent.Modify
