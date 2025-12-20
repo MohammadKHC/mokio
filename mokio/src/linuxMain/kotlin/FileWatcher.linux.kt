@@ -22,7 +22,7 @@ actual class FileWatcher actual constructor(
         .checkNotNegativeOne()
     private val eventsMask = events.fold(0) { acc, it ->
         acc or it.inotifyEventMask
-    } or IN_DELETE_SELF or IN_MOVE_SELF // TODO Is this right?
+    }
 
     private val watchers = mutableMapOf<Int, Watcher>()
     private val mutex = Mutex()
