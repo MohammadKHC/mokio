@@ -87,8 +87,8 @@ actual class FileWatcher actual constructor(
                 pathDict,
                 kFSEventStreamEventExtendedFileIDKey.toCFStringRef()
             )?.reinterpret()
-            print("$pathRef $fileIdRef")
-            print("${pathRef.toKString()} ${fileIdRef?.toKLong()}")
+            println("$pathRef $fileIdRef")
+            println("${pathRef.toKString()} ${fileIdRef?.toKLong()}")
 
             val path = pathRef.toKString().toPath()
 
