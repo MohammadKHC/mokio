@@ -32,3 +32,7 @@ internal fun runFileSystemTest(
         test(workingDirectory)
     }
 }
+
+internal fun sleep(seconds: Int) {
+    Process(listOf("sleep", seconds.toString())).waitFor()
+}
