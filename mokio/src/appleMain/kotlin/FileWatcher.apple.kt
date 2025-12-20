@@ -85,7 +85,7 @@ actual class FileWatcher actual constructor(
                     pathDict,
                     kFSEventStreamEventExtendedDataPathKey.toCFStringRef()
                 )!!.reinterpret()
-            )
+            ).toPath()
             val fileId = getKLong(
                 CFDictionaryGetValue(
                     pathDict,
