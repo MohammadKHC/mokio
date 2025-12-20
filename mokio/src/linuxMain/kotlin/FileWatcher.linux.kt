@@ -22,10 +22,14 @@ actual class FileWatcher actual constructor(
         .checkNotNegativeOne()
     private val eventsMask = events.fold(0) { acc, it ->
         acc or it.inotifyEventMask
-    }
+    } or IN_DELETE_SELF or IN_MOVE_SELF // TODO Is this right?
 
     private val watchers = mutableMapOf<Int, Watcher>()
     private val mutex = Mutex()
+
+    init {
+        thread("FileWatcher", ::watch)
+    }
 
     actual fun startWatching() = mutex.withLock {
         watchPath(path)
@@ -78,7 +82,7 @@ actual class FileWatcher actual constructor(
 
     private fun watch() = memScoped {
         val buffer = alloc(inotifyBufferSize, alignOf<inotify_event>())
-        while (watchers.isNotEmpty()) {
+        while (true) {
             val length = read(inotifyFd, buffer.reinterpret<ByteVar>().ptr, inotifyBufferSize.convert())
             if (length == -1L) {
                 if (errno == EBADF || errno == EINTR)
@@ -91,6 +95,24 @@ actual class FileWatcher actual constructor(
             var offset = 0L
             while (offset < length) {
                 val event = interpretPointed<inotify_event>(buffer.rawPtr + offset)
+                print((if (event.len > 0u) event.name.toKString() else null)?.let(path::resolve) ?: path)
+                if (event.mask.toInt() and IN_CREATE != 0)
+                    print(" created")
+                if (event.mask.toInt() and IN_MODIFY != 0)
+                    print(" modified")
+                if (event.mask.toInt() and IN_ATTRIB != 0)
+                    print(" attributes")
+                if (event.mask.toInt() and IN_DELETE != 0)
+                    print(" removed")
+                if (event.mask.toInt() and IN_MOVED_FROM != 0)
+                    print(" renamed from")
+                if (event.mask.toInt() and IN_MOVED_TO != 0)
+                    print(" renamed to")
+                if (event.mask.toInt() and IN_DELETE_SELF != 0)
+                    print(" removed self")
+                if (event.mask.toInt() and IN_MOVE_SELF != 0)
+                    print(" moved self")
+                println()
                 mutex.withLock { watchers[event.wd] }?.apply {
                     val name = if (event.len > 0u) event.name.toKString() else null
                     onRawEvent(event, name?.let(path::resolve) ?: path)
