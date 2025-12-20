@@ -77,19 +77,24 @@ actual class FileWatcher actual constructor(
             if (flags and kFSEventStreamEventFlagItemChangeOwner != 0u)
                 print(" owner changed.")
             println()
-            val event = when {
-                flags and kFSEventStreamEventFlagItemCreated != 0u -> FileChangeEvent.Create
-                flags and kFSEventStreamEventFlagItemModified != 0u -> FileChangeEvent.Modify
-                flags and kFSEventStreamEventFlagItemInodeMetaMod != 0u
-                        || flags and kFSEventStreamEventFlagItemChangeOwner != 0u
-                        || flags and kFSEventStreamEventFlagItemXattrMod != 0u ->
-                    FileChangeEvent.Attributes
 
-                flags and kFSEventStreamEventFlagItemRemoved != 0u -> FileChangeEvent.Delete
-                else -> continue
+            if (flags and kFSEventStreamEventFlagItemCreated != 0u && FileChangeEvent.Create in events) {
+                onEvent(FileChangeEvent.Create, eventPaths[i]!!.toKString().toPath())
             }
-            if (event in events) {
-                onEvent(event, eventPaths[i]!!.toKString().toPath())
+
+            if (flags and kFSEventStreamEventFlagItemModified != 0u && FileChangeEvent.Modify in events) {
+                onEvent(FileChangeEvent.Modify, eventPaths[i]!!.toKString().toPath())
+            }
+
+            if (flags and (kFSEventStreamEventFlagItemInodeMetaMod or
+                        kFSEventStreamEventFlagItemChangeOwner or
+                        kFSEventStreamEventFlagItemXattrMod) != 0u && FileChangeEvent.Delete in events
+            ) {
+                onEvent(FileChangeEvent.Attributes, eventPaths[i]!!.toKString().toPath())
+            }
+
+            if (flags and kFSEventStreamEventFlagItemRemoved != 0u && FileChangeEvent.Delete in events) {
+                onEvent(FileChangeEvent.Delete, eventPaths[i]!!.toKString().toPath())
             }
         }
     }
