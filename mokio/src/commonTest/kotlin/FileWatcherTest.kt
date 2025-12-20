@@ -55,6 +55,10 @@ class FileWatcherTest {
         println("Updating myFile last modified time to be $time.")
         setLastModifiedTime(dir / "myNewDirectory/myFile", time)
 
+        sleep(2)
+        println("Updating myFile last access time to be $time.")
+        setLastAccessTime(dir / "myNewDirectory/myFile", time)
+
         sleep(5)
     }
 
@@ -72,6 +76,15 @@ class FileWatcherTest {
 
     private fun setLastModifiedTime(path: Path, time: Instant) {
         Process(listOf("touch", path.toString(), "-m", "-t", time.format(DateTimeComponents.Format {
+            date(ISO_BASIC)
+            hour()
+            minute()
+            optional { char('.'); second() }
+        }))).waitFor()
+    }
+
+    private fun setLastAccessTime(path: Path, time: Instant) {
+        Process(listOf("touch", path.toString(), "-a", "-t", time.format(DateTimeComponents.Format {
             date(ISO_BASIC)
             hour()
             minute()
