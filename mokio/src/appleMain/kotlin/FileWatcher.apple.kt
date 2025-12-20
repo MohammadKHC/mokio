@@ -79,14 +79,15 @@ actual class FileWatcher actual constructor(
             val flags = eventFlags[i]
             val pathDict: CFDictionaryRef =
                 CFArrayGetValueAtIndex(eventPaths, i)!!.reinterpret()
-            val path = getKString(CFDictionaryGetValue(
-                pathDict,
-                kFSEventStreamEventExtendedDataPathKey.cstr
-            )!!.reinterpret()).toPath()
             val fileId = getKLong(CFDictionaryGetValue(
                 pathDict,
                 kFSEventStreamEventExtendedFileIDKey.cstr
             )!!.reinterpret())
+            println("Get file id: $fileId")
+            val path = getKString(CFDictionaryGetValue(
+                pathDict,
+                kFSEventStreamEventExtendedDataPathKey.cstr
+            )!!.reinterpret()).toPath()
             print("$path $fileId")
             if (flags and kFSEventStreamEventFlagItemCreated != 0u)
                 print(" created")
@@ -134,22 +135,5 @@ actual class FileWatcher actual constructor(
         streamRef = null
         ref?.dispose()
         ref = null
-    }
-
-    private fun getKString(stringRef: CFStringRef): String = memScoped {
-        val size = CFStringGetMaximumSizeForEncoding(
-            CFStringGetLength(stringRef),
-            kCFStringEncodingUTF8
-        ) + 1
-
-        allocArray<ByteVar>(size) {
-            CFStringGetCString(stringRef, ptr, size, kCFStringEncodingUTF8)
-        }.toKString()
-    }
-
-    private fun getKLong(numberRef: CFNumberRef): Long = memScoped {
-        alloc<LongVar> {
-            CFNumberGetValue(numberRef, kCFNumberLongType, ptr)
-        }.value
     }
 }
