@@ -19,6 +19,7 @@ class FileWatcherTest {
         FileWatcher(dir, recursive = true) { event, path ->
             println("$event, $path")
         }.startWatching()
+        sleep(5)
         initMyDirectory(dir)
 
         sleep(2)
@@ -65,10 +66,12 @@ class FileWatcherTest {
     private fun initMyDirectory(parent: Path) {
         println("Creating myDirectory and it's children.")
         FileSystem.SYSTEM.createDirectory(parent / "myDirectory")
+        sleep(2)
         FileSystem.SYSTEM.write(parent / "myDirectory/myFile") {
             writeUtf8("Hello!")
         }
         FileSystem.SYSTEM.createDirectory(parent / "myDirectory/mySubDirectory")
+        sleep(2)
         FileSystem.SYSTEM.write(parent / "myDirectory/mySubDirectory/myNestedFile") {
             writeUtf8("Hello, nested!")
         }
