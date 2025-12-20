@@ -10,12 +10,20 @@ import kotlinx.cinterop.toKString
 import kotlinx.cinterop.value
 import platform.CoreFoundation.CFNumberGetValue
 import platform.CoreFoundation.CFNumberRef
+import platform.CoreFoundation.CFStringCreateWithCString
 import platform.CoreFoundation.CFStringGetCString
 import platform.CoreFoundation.CFStringGetLength
 import platform.CoreFoundation.CFStringGetMaximumSizeForEncoding
 import platform.CoreFoundation.CFStringRef
 import platform.CoreFoundation.kCFNumberLongType
 import platform.CoreFoundation.kCFStringEncodingUTF8
+
+internal fun String.toCFStringRef(): CFStringRef? =
+    CFStringCreateWithCString(
+        null,
+        this,
+        kCFStringEncodingUTF8
+    )
 
 internal fun getKString(stringRef: CFStringRef): String = memScoped {
     val size = CFStringGetMaximumSizeForEncoding(
