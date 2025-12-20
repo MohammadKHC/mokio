@@ -25,19 +25,19 @@ internal fun String.toCFStringRef(): CFStringRef? =
         kCFStringEncodingUTF8
     )
 
-internal fun getKString(stringRef: CFStringRef): String = memScoped {
+internal fun CFStringRef.toKString(): String = memScoped {
     val size = CFStringGetMaximumSizeForEncoding(
-        CFStringGetLength(stringRef),
+        CFStringGetLength(this@toKString),
         kCFStringEncodingUTF8
     ) + 1
 
     allocArray<ByteVar>(size) {
-        CFStringGetCString(stringRef, ptr, size, kCFStringEncodingUTF8)
+        CFStringGetCString(this@toKString, ptr, size, kCFStringEncodingUTF8)
     }.toKString()
 }
 
-internal fun getKLong(numberRef: CFNumberRef): Long = memScoped {
+internal fun CFNumberRef.toKLong(): Long = memScoped {
     alloc<LongVar> {
-        CFNumberGetValue(numberRef, kCFNumberLongType, ptr)
+        CFNumberGetValue(this@toKLong, kCFNumberLongType, ptr)
     }.value
 }
