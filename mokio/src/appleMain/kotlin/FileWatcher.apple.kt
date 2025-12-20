@@ -4,7 +4,21 @@ import kotlinx.cinterop.*
 import okio.Path
 import okio.Path.Companion.toPath
 import platform.CoreFoundation.CFArrayCreate
+import platform.CoreFoundation.CFArrayGetValueAtIndex
+import platform.CoreFoundation.CFArrayRef
+import platform.CoreFoundation.CFArrayRefVar
+import platform.CoreFoundation.CFDictionaryGetValue
+import platform.CoreFoundation.CFDictionaryRef
+import platform.CoreFoundation.CFNumberGetValue
+import platform.CoreFoundation.CFNumberRef
+import platform.CoreFoundation.CFNumberType
 import platform.CoreFoundation.CFStringCreateWithCString
+import platform.CoreFoundation.CFStringGetCString
+import platform.CoreFoundation.CFStringGetLength
+import platform.CoreFoundation.CFStringGetMaximumSizeForEncoding
+import platform.CoreFoundation.CFStringRef
+import platform.CoreFoundation.CFStringRefVar
+import platform.CoreFoundation.kCFNumberLongType
 import platform.CoreFoundation.kCFStringEncodingUTF8
 import platform.CoreServices.*
 import platform.darwin.dispatch_queue_create
@@ -43,7 +57,10 @@ actual class FileWatcher actual constructor(
             pathsToWatch = pathsToWatch,
             sinceWhen = kFSEventStreamEventIdSinceNow,
             latency = 0.2,
-            flags = kFSEventStreamCreateFlagFileEvents or kFSEventStreamCreateFlagNoDefer
+            flags = kFSEventStreamCreateFlagFileEvents or
+                    kFSEventStreamCreateFlagNoDefer or
+                    kFSEventStreamCreateFlagUseCFTypes or
+                    kFSEventStreamCreateFlagUseExtendedData
         )
         FSEventStreamSetDispatchQueue(
             streamRef,
@@ -54,12 +71,23 @@ actual class FileWatcher actual constructor(
 
     fun dispatchEvents(
         eventsCount: Long,
-        eventPaths: CPointer<CPointerVar<ByteVar>>,
+        eventPaths: CFArrayRef,
         eventFlags: CPointer<UIntVar>
     ) {
+        println("event count: $eventsCount")
         for (i in 0L until eventsCount) {
             val flags = eventFlags[i]
-            print(eventPaths[i]!!.toKString())
+            val pathDict: CFDictionaryRef =
+                CFArrayGetValueAtIndex(eventPaths, i)!!.reinterpret()
+            val path = getKString(CFDictionaryGetValue(
+                pathDict,
+                kFSEventStreamEventExtendedDataPathKey.cstr
+            )!!.reinterpret()).toPath()
+            val fileId = getKLong(CFDictionaryGetValue(
+                pathDict,
+                kFSEventStreamEventExtendedFileIDKey.cstr
+            )!!.reinterpret())
+            print("$path $fileId")
             if (flags and kFSEventStreamEventFlagItemCreated != 0u)
                 print(" created")
             if (flags and kFSEventStreamEventFlagItemModified != 0u)
@@ -79,22 +107,22 @@ actual class FileWatcher actual constructor(
             println()
 
             if (flags and kFSEventStreamEventFlagItemCreated != 0u && FileChangeEvent.Create in events) {
-                onEvent(FileChangeEvent.Create, eventPaths[i]!!.toKString().toPath())
+                onEvent(FileChangeEvent.Create, path)
             }
 
             if (flags and kFSEventStreamEventFlagItemModified != 0u && FileChangeEvent.Modify in events) {
-                onEvent(FileChangeEvent.Modify, eventPaths[i]!!.toKString().toPath())
+                onEvent(FileChangeEvent.Modify, path)
             }
 
             if (flags and (kFSEventStreamEventFlagItemInodeMetaMod or
                         kFSEventStreamEventFlagItemChangeOwner or
                         kFSEventStreamEventFlagItemXattrMod) != 0u && FileChangeEvent.Delete in events
             ) {
-                onEvent(FileChangeEvent.Attributes, eventPaths[i]!!.toKString().toPath())
+                onEvent(FileChangeEvent.Attributes, path)
             }
 
             if (flags and kFSEventStreamEventFlagItemRemoved != 0u && FileChangeEvent.Delete in events) {
-                onEvent(FileChangeEvent.Delete, eventPaths[i]!!.toKString().toPath())
+                onEvent(FileChangeEvent.Delete, path)
             }
         }
     }
@@ -106,5 +134,22 @@ actual class FileWatcher actual constructor(
         streamRef = null
         ref?.dispose()
         ref = null
+    }
+
+    private fun getKString(stringRef: CFStringRef): String = memScoped {
+        val size = CFStringGetMaximumSizeForEncoding(
+            CFStringGetLength(stringRef),
+            kCFStringEncodingUTF8
+        ) + 1
+
+        allocArray<ByteVar>(size) {
+            CFStringGetCString(stringRef, ptr, size, kCFStringEncodingUTF8)
+        }.toKString()
+    }
+
+    private fun getKLong(numberRef: CFNumberRef): Long = memScoped {
+        alloc<LongVar> {
+            CFNumberGetValue(numberRef, kCFNumberLongType, ptr)
+        }.value
     }
 }
