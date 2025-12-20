@@ -7,6 +7,7 @@ import platform.CoreFoundation.CFArrayCreate
 import platform.CoreFoundation.CFArrayGetValueAtIndex
 import platform.CoreFoundation.CFArrayRef
 import platform.CoreFoundation.CFArrayRefVar
+import platform.CoreFoundation.CFDictionaryGetCount
 import platform.CoreFoundation.CFDictionaryGetValue
 import platform.CoreFoundation.CFDictionaryRef
 import platform.CoreFoundation.CFNumberGetValue
@@ -79,6 +80,8 @@ actual class FileWatcher actual constructor(
             val flags = eventFlags[i]
             val pathDict: CFDictionaryRef =
                 CFArrayGetValueAtIndex(eventPaths, i)!!.reinterpret()
+            println("pathDict: $pathDict")
+            println("size: ${CFDictionaryGetCount(pathDict)}")
             val fileId = getKLong(CFDictionaryGetValue(
                 pathDict,
                 kFSEventStreamEventExtendedFileIDKey.cstr
