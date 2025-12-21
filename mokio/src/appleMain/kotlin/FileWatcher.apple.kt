@@ -77,15 +77,6 @@ actual class FileWatcher actual constructor(
     ) {
         println("event count: $eventsCount")
         for (i in 0L until eventsCount) {
-            val pathDict: CFDictionaryRef =
-                CFArrayGetValueAtIndex(eventPaths, i)!!.reinterpret()
-            val pathRef: CFStringRef = CFDictionaryGetValue(
-                pathDict,
-                kFSEventStreamEventExtendedDataPathKey.toCFStringRef()
-            )!!.reinterpret()
-
-            val path = pathRef.toKString().toPath()
-            print("$path")
 
             val flags = eventFlags[i]
             if (flags and kFSEventStreamEventFlagItemCreated != 0u)
@@ -105,6 +96,19 @@ actual class FileWatcher actual constructor(
             if (flags and kFSEventStreamEventFlagItemChangeOwner != 0u)
                 print(" owner changed.")
             println()
+
+            val pathDict: CFDictionaryRef =
+                CFArrayGetValueAtIndex(eventPaths, i)!!.reinterpret()
+            val pathRef: CFStringRef = CFDictionaryGetValue(
+                pathDict,
+                kFSEventStreamEventExtendedDataPathKey.toCFStringRef()
+            )?.reinterpret() ?: run {
+                println("Unable to get path.")
+                continue
+            }
+
+            val path = pathRef.toKString().toPath()
+            print("$path")
 
             if (flags and kFSEventStreamEventFlagItemCreated != 0u && FileChangeEvent.Create in events) {
                 onEvent(FileChangeEvent.Create, path)
