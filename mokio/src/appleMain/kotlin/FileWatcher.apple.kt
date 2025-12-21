@@ -97,13 +97,18 @@ actual class FileWatcher actual constructor(
                 print(" owner changed.")
             println()
 
-            val pathDict: CFDictionaryRef =
-                CFArrayGetValueAtIndex(eventPaths, i)!!.reinterpret()
+            val pathDict: CFDictionaryRef? =
+                CFArrayGetValueAtIndex(eventPaths, i)?.reinterpret()
+            if (pathDict == null) {
+                println("pathDict is null.")
+                continue
+            }
             val pathRef: CFStringRef = CFDictionaryGetValue(
                 pathDict,
                 kFSEventStreamEventExtendedDataPathKey.toCFStringRef()
             )?.reinterpret() ?: run {
                 println("Unable to get path.")
+                println("rawC: ${CFArrayGetValueAtIndex(eventPaths, i)?.reinterpret<ByteVar>()?.toKString()}")
                 continue
             }
 
