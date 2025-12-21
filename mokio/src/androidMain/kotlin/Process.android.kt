@@ -11,7 +11,7 @@ actual class Process actual constructor(
     command: List<String>,
     directory: Path?,
     environment: Map<String, String>?,
-    redirectErrorToInput: Boolean
+    redirectErrorSource: Boolean
 ) {
     private val process = ProcessBuilder(command).apply {
         directory?.toFile()?.let(::directory)
@@ -19,7 +19,7 @@ actual class Process actual constructor(
             environment().clear()
             environment() += environment
         }
-        redirectErrorStream(redirectErrorToInput)
+        redirectErrorStream(redirectErrorSource)
     }.start()
 
     actual val pid: UInt
@@ -52,8 +52,8 @@ actual class Process actual constructor(
             true
         }
 
-    actual val inputSource = process.inputStream.source()
-    actual val outputSink = process.outputStream.sink()
+    actual val inputSink = process.outputStream.sink()
+    actual val outputSource = process.inputStream.source()
     actual val errorSource = process.errorStream.source()
     actual fun waitFor() = process.waitFor()
 

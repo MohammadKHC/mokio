@@ -8,12 +8,12 @@ expect class Process(
     command: List<String>,
     directory: Path? = null,
     environment: Map<String, String>? = null,
-    redirectErrorToInput: Boolean = false
+    redirectErrorSource: Boolean = false
 ) {
     val pid: UInt
     val isAlive: Boolean
-    val inputSource: Source
-    val outputSink: Sink
+    val inputSink: Sink
+    val outputSource: Source
     val errorSource: Source
     fun waitFor(): Int
     fun destroy(force: Boolean = false)
@@ -21,7 +21,7 @@ expect class Process(
 
 @Suppress("NOTHING_TO_INLINE")
 internal inline fun Process.closeIO() {
-    runCatching(inputSource::close)
-    runCatching(outputSink::close)
+    runCatching(inputSink::close)
+    runCatching(outputSource::close)
     runCatching(errorSource::close)
 }

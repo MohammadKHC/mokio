@@ -9,26 +9,26 @@ import kotlin.test.assertTrue
 class ProcessTest {
     @Test
     fun inputTest() {
-        val process = Process(shellCommand("echo Hello, world!"))
-        val input = process.inputSource.buffer()
-        assertEquals("Hello, world!", input.readUtf8().trimEnd())
+        val process = Process(
+            if (isUnixLikeOs) shellCommand($$"echo Enter your name && read name && echo Hello, $name")
+            else shellFile("@echo off\r\necho Enter your name\r\nset /p name=\r\necho Hello, %name%")
+        )
+        val input = process.inputSink.buffer()
+        val output = process.outputSource.buffer()
+        assertEquals("Enter your name", output.readUtf8LineStrict())
+        input.writeUtf8("MohammedKHC")
+        input.writeByte('\n'.code)
+        input.flush()
+        assertEquals("Hello, MohammedKHC", output.readUtf8LineStrict())
+        assertTrue(output.exhausted())
         assertEquals(0, process.waitFor())
     }
 
     @Test
     fun outputTest() {
-        val process = Process(
-            if (isUnixLikeOs) shellCommand($$"echo Enter your name && read name && echo Hello, $name")
-            else shellFile("@echo off\r\necho Enter your name\r\nset /p name=\r\necho Hello, %name%")
-        )
-        val input = process.inputSource.buffer()
-        val output = process.outputSink.buffer()
-        assertEquals("Enter your name", input.readUtf8LineStrict())
-        output.writeUtf8("MohammedKHC")
-        output.writeByte('\n'.code)
-        output.flush()
-        assertEquals("Hello, MohammedKHC", input.readUtf8LineStrict())
-        assertTrue(input.exhausted())
+        val process = Process(shellCommand("echo Hello, world!"))
+        val output = process.outputSource.buffer()
+        assertEquals("Hello, world!", output.readUtf8().trimEnd())
         assertEquals(0, process.waitFor())
     }
 
@@ -48,8 +48,8 @@ class ProcessTest {
             shellCommand(if (isUnixLikeOs) "pwd" else "cd"),
             directory = tempPath
         )
-        val input = process.inputSource.buffer()
-        assertEquals(tempPath.toString(), input.readUtf8().trimEnd())
+        val output = process.outputSource.buffer()
+        assertEquals(tempPath.toString(), output.readUtf8().trimEnd())
         assertEquals(0, process.waitFor())
     }
 
@@ -62,8 +62,8 @@ class ProcessTest {
             ),
             environment = mapOf("RANDOM_ENV" to "VALID_RANDOM_ENV")
         )
-        val input = process.inputSource.buffer()
-        assertContains(input.readUtf8().trimEnd(), "VALID_RANDOM_ENV")
+        val output = process.outputSource.buffer()
+        assertContains(output.readUtf8().trimEnd(), "VALID_RANDOM_ENV")
         assertEquals(0, process.waitFor())
     }
 
@@ -71,11 +71,11 @@ class ProcessTest {
     fun redirectErrorTest() {
         val process = Process(
             shellCommand("echo This is an error message.>&2"),
-            redirectErrorToInput = true
+            redirectErrorSource = true
         )
-        val input = process.inputSource.buffer()
+        val output = process.outputSource.buffer()
         val error = process.errorSource.buffer()
-        assertEquals("This is an error message.", input.readUtf8().trimEnd())
+        assertEquals("This is an error message.", output.readUtf8().trimEnd())
         assertTrue(error.exhausted())
         assertEquals(0, process.waitFor())
     }

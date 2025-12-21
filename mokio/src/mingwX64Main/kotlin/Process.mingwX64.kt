@@ -11,7 +11,7 @@ actual class Process actual constructor(
     command: List<String>,
     directory: Path?,
     environment: Map<String, String>?,
-    redirectErrorToInput: Boolean
+    redirectErrorSource: Boolean
 ) {
     actual val pid: UInt
     private val handle: HANDLE
@@ -49,7 +49,7 @@ actual class Process actual constructor(
             val (stdinRead, stdinWrite) = createPipe(true)
             val (stdoutRead, stdoutWrite) = createPipe(false)
             val (stdErrRead, stdErrWrite) =
-                if (redirectErrorToInput) null to null
+                if (redirectErrorSource) null to null
                 else createPipe(false)
 
             val startupInfo = alloc<STARTUPINFO> {
@@ -86,17 +86,17 @@ actual class Process actual constructor(
             CloseHandle(stdinRead).ensureSuccess()
             CloseHandle(stdoutWrite).ensureSuccess()
             stdErrWrite?.let(::CloseHandle)?.ensureSuccess()
-            inputHandle = stdoutRead
+            inputHandle = stdinWrite
+            outputHandle = stdoutRead
             errorHandle = stdErrRead
-            outputHandle = stdinWrite
         }
     }
 
     actual val isAlive: Boolean
         get() = WaitForSingleObject(handle, 0u).toInt() == WAIT_TIMEOUT
 
-    actual val inputSource: Source = FileDescriptor(inputHandle)
-    actual val outputSink: Sink = FileDescriptor(outputHandle)
+    actual val inputSink: Sink = FileDescriptor(inputHandle)
+    actual val outputSource: Source = FileDescriptor(outputHandle)
     actual val errorSource: Source =
         if (errorHandle != null) FileDescriptor(errorHandle)
         else Buffer()

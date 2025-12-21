@@ -11,7 +11,7 @@ actual class Process actual constructor(
     command: List<String>,
     directory: Path?,
     environment: Map<String, String>?,
-    redirectErrorToInput: Boolean
+    redirectErrorSource: Boolean
 ) {
     actual val pid: UInt
 
@@ -24,7 +24,7 @@ actual class Process actual constructor(
             val childIn = allocArray<IntVar>(2).also(::pipe)
             val childOut = allocArray<IntVar>(2).also(::pipe)
             val childErr =
-                if (redirectErrorToInput) null
+                if (redirectErrorSource) null
                 else allocArray<IntVar>(2).also(::pipe)
             when (val forkResult = fork()) {
                 0 -> {
@@ -57,8 +57,8 @@ actual class Process actual constructor(
             if (childErr != null) {
                 close(childErr[1])
             }
-            inputFd = childOut[0]
-            outputFd = childIn[1]
+            inputFd = childIn[1]
+            outputFd = childOut[0]
             errorFd = childErr?.get(0)
         }
     }
@@ -66,8 +66,8 @@ actual class Process actual constructor(
     actual val isAlive: Boolean
         get() = waitpid(pid.toInt(), null, WNOHANG) == 0
 
-    actual val inputSource: Source = FileDescriptor(inputFd)
-    actual val outputSink: Sink = FileDescriptor(outputFd)
+    actual val inputSink: Sink = FileDescriptor(inputFd)
+    actual val outputSource: Source = FileDescriptor(outputFd)
     actual val errorSource: Source =
         if (errorFd != null) FileDescriptor(errorFd)
         else Buffer()
