@@ -61,7 +61,7 @@ actual class FileWatcher actual constructor(
             context = context,
             pathsToWatch = pathsToWatch,
             sinceWhen = kFSEventStreamEventIdSinceNow,
-            latency = 0.0,
+            latency = 0.2,
             flags = kFSEventStreamCreateFlagFileEvents or
                     kFSEventStreamCreateFlagNoDefer or
                     kFSEventStreamCreateFlagUseCFTypes or
