@@ -79,18 +79,19 @@ actual class FileWatcher actual constructor(
         for (i in 0L until eventsCount) {
             val pathDict: CFDictionaryRef =
                 CFArrayGetValueAtIndex(eventPaths, i)!!.reinterpret()
-            val pathRef: CFStringRef = CFDictionaryGetValue(
+            val pathRef: CFStringRef? = CFDictionaryGetValue(
                 pathDict,
                 kFSEventStreamEventExtendedDataPathKey.toCFStringRef()
-            )!!.reinterpret()
+            )?.reinterpret()
             val fileIdRef: CFNumberRef? = CFDictionaryGetValue(
                 pathDict,
                 kFSEventStreamEventExtendedFileIDKey.toCFStringRef()
             )?.reinterpret()
             println("$pathRef $fileIdRef")
-            println("${pathRef.toKString()} ${fileIdRef?.toKLong()}")
 
-            val path = pathRef.toKString().toPath()
+            println("${pathRef?.toKString()} ${fileIdRef?.toKLong()}")
+
+            val path = pathRef?.toKString()?.toPath() ?: "/test".toPath()
 
             val flags = eventFlags[i]
             if (flags and kFSEventStreamEventFlagItemCreated != 0u)
