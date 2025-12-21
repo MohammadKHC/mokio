@@ -1,7 +1,7 @@
 package com.mohammedkhc.io
 
 import kotlinx.cinterop.ByteVar
-import kotlinx.cinterop.LongVar
+import kotlinx.cinterop.ULongVar
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.allocArray
 import kotlinx.cinterop.memScoped
@@ -38,14 +38,8 @@ internal fun CFStringRef.toKString(): String = memScoped {
     }.toKString()
 }
 
-internal fun CFNumberRef.toKLong(): Long = memScoped {
-    if (CFNumberGetType(this@toKLong) == kCFNumberLongType) {
-        println("is long")
-    }
-    if (CFNumberGetType(this@toKLong) == kCFNumberSInt64Type) {
-        println("is int64")
-    }
-    alloc<LongVar> {
-        CFNumberGetValue(this@toKLong, kCFNumberLongType, ptr)
+internal fun CFNumberRef.toKULong(): ULong = memScoped {
+    alloc<ULongVar> {
+        CFNumberGetValue(this@toKULong, kCFNumberSInt64Type, ptr)
     }.value
 }

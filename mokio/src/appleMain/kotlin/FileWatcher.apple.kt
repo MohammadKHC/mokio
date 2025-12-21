@@ -74,7 +74,7 @@ actual class FileWatcher actual constructor(
         FSEventStreamStart(streamRef)
     }
 
-    private val pendingRenames = mutableMapOf<Long, Path>()
+    private val pendingRenames = mutableMapOf<ULong, Path>()
 
     fun dispatchEvents(
         eventsCount: Long,
@@ -118,7 +118,7 @@ actual class FileWatcher actual constructor(
                     pathDict,
                     kFSEventStreamEventExtendedFileIDKey.toCFStringRef()
                 )!!.reinterpret()
-                val fileId = fileIdRef.toKLong()
+                val fileId = fileIdRef.toKULong()
                 val oldPath = pendingRenames.remove(fileId)
                 if (oldPath == null) {
                     pendingRenames[fileId] = path
