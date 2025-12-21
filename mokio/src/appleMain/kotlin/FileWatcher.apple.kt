@@ -81,60 +81,22 @@ actual class FileWatcher actual constructor(
     ) {
         println("event count: $eventsCount")
         for (i in 0L until eventsCount) {
-            val data = CFArrayGetValueAtIndex(eventPaths, i) ?: continue
-            val (path, fileId) = when (CFGetTypeID(data)) {
-                CFDictionaryGetTypeID() -> {
-                    println("is dict.")
-                    val cfPath = CFDictionaryGetValue(
-                        data.reinterpret(),
-                        kFSEventStreamEventExtendedDataPathKey.toCFStringRef()
-                    )
+            val pathDict: CFDictionaryRef = CFArrayGetValueAtIndex(
+                eventPaths,
+                i
+            )!!.reinterpret()
+            val pathRef: CFStringRef = CFDictionaryGetValue(
+                pathDict,
+                kFSEventStreamEventExtendedDataPathKey.toCFStringRef()
+            )!!.reinterpret()
+            val fileIdRef: CFNumberRef = CFDictionaryGetValue(
+                pathDict,
+                kFSEventStreamEventExtendedFileIDKey.toCFStringRef()
+            )!!.reinterpret()
+            val path = pathRef.toKString().toPath()
+            val fileId = fileIdRef.toKLong()
 
-                    when (val typeId = CFGetTypeID(cfPath)) {
-                        CFStringGetTypeID() -> {
-                            println((cfPath as? CFStringRef)?.toKString())
-                        }
-                        else -> println("path is unknown: $typeId")
-                    }
-
-                    if (cfPath == null) {
-                        println("cfPath is null.")
-                        val flags = eventFlags[i]
-                        if (flags and kFSEventStreamEventFlagItemCreated != 0u)
-                            print(" created")
-                        if (flags and kFSEventStreamEventFlagItemModified != 0u)
-                            print(" modified")
-                        if (flags and kFSEventStreamEventFlagItemXattrMod != 0u)
-                            print(" xattr")
-                        if (flags and kFSEventStreamEventFlagItemRemoved != 0u)
-                            print(" removed")
-                        if (flags and kFSEventStreamEventFlagItemRenamed != 0u)
-                            print(" renamed")
-                        if (flags and kFSEventStreamEventFlagItemCloned != 0u)
-                            print(" cloned")
-                        if (flags and kFSEventStreamEventFlagItemInodeMetaMod != 0u)
-                            print(" inodeMetaMod")
-                        if (flags and kFSEventStreamEventFlagItemChangeOwner != 0u)
-                            print(" owner changed.")
-                        println()
-                        continue
-                    }
-                    (cfPath as? CFStringRef)!!.toKString().toPath() to 0
-                }
-
-                CFStringGetTypeID() -> {
-                    println("is cf string.")
-                    val cfPath: CFStringRef = data.reinterpret()
-                    cfPath.toKString().toPath() to 0
-                }
-
-                else -> {
-                    println("is unknown.")
-                    continue
-                }
-            }
-
-            print(path)
+            print("$path $fileId")
             val flags = eventFlags[i]
             if (flags and kFSEventStreamEventFlagItemCreated != 0u)
                 print(" created")

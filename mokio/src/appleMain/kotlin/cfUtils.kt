@@ -16,7 +16,6 @@ import platform.CoreFoundation.CFStringGetLength
 import platform.CoreFoundation.CFStringGetMaximumSizeForEncoding
 import platform.CoreFoundation.CFStringRef
 import platform.CoreFoundation.kCFNumberLongType
-import platform.CoreFoundation.kCFStringEncodingMacRoman
 import platform.CoreFoundation.kCFStringEncodingUTF8
 
 internal fun String.toCFStringRef(): CFStringRef? =
@@ -29,11 +28,11 @@ internal fun String.toCFStringRef(): CFStringRef? =
 internal fun CFStringRef.toKString(): String = memScoped {
     val size = CFStringGetMaximumSizeForEncoding(
         CFStringGetLength(this@toKString),
-        kCFStringEncodingMacRoman
+        kCFStringEncodingUTF8
     ) + 1
 
-    allocArray<ByteVar>(size) {
-        CFStringGetCString(this@toKString, ptr, size, kCFStringEncodingMacRoman)
+    allocArray<ByteVar>(size).apply {
+        CFStringGetCString(this@toKString, this, size, kCFStringEncodingUTF8)
     }.toKString()
 }
 
