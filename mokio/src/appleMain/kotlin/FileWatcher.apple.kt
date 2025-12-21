@@ -8,8 +8,10 @@ import platform.CoreFoundation.CFArrayGetValueAtIndex
 import platform.CoreFoundation.CFArrayRef
 import platform.CoreFoundation.CFArrayRefVar
 import platform.CoreFoundation.CFDictionaryGetCount
+import platform.CoreFoundation.CFDictionaryGetTypeID
 import platform.CoreFoundation.CFDictionaryGetValue
 import platform.CoreFoundation.CFDictionaryRef
+import platform.CoreFoundation.CFGetTypeID
 import platform.CoreFoundation.CFNumberGetValue
 import platform.CoreFoundation.CFNumberRef
 import platform.CoreFoundation.CFNumberType
@@ -17,6 +19,7 @@ import platform.CoreFoundation.CFStringCreateWithCString
 import platform.CoreFoundation.CFStringGetCString
 import platform.CoreFoundation.CFStringGetLength
 import platform.CoreFoundation.CFStringGetMaximumSizeForEncoding
+import platform.CoreFoundation.CFStringGetTypeID
 import platform.CoreFoundation.CFStringRef
 import platform.CoreFoundation.CFStringRefVar
 import platform.CoreFoundation.kCFNumberLongType
@@ -77,7 +80,30 @@ actual class FileWatcher actual constructor(
     ) {
         println("event count: $eventsCount")
         for (i in 0L until eventsCount) {
+            val data = CFArrayGetValueAtIndex(eventPaths, i) ?: continue
+            val (path, fileId) = when (CFGetTypeID(data)) {
+                CFDictionaryGetTypeID() -> {
+                    println("is dict.")
+                    val cfPath: CFStringRef = CFDictionaryGetValue(
+                        data.reinterpret(),
+                        kFSEventStreamEventExtendedDataPathKey.toCFStringRef()
+                    )!!.reinterpret()
+                    cfPath.toKString().toPath() to 0
+                }
 
+                CFStringGetTypeID() -> {
+                    println("is cf string.")
+                    val cfPath: CFStringRef = data.reinterpret()
+                    cfPath.toKString().toPath() to 0
+                }
+
+                else -> {
+                    println("is unknown.")
+                    continue
+                }
+            }
+
+            print(path)
             val flags = eventFlags[i]
             if (flags and kFSEventStreamEventFlagItemCreated != 0u)
                 print(" created")
@@ -96,24 +122,6 @@ actual class FileWatcher actual constructor(
             if (flags and kFSEventStreamEventFlagItemChangeOwner != 0u)
                 print(" owner changed.")
             println()
-
-            val pathDict: CFDictionaryRef? =
-                CFArrayGetValueAtIndex(eventPaths, i)?.reinterpret()
-            if (pathDict == null) {
-                println("pathDict is null.")
-                continue
-            }
-            val pathRef: CFStringRef = CFDictionaryGetValue(
-                pathDict,
-                kFSEventStreamEventExtendedDataPathKey.toCFStringRef()
-            )?.reinterpret() ?: run {
-                println("Unable to get path.")
-                println("rawC: ${CFArrayGetValueAtIndex(eventPaths, i)?.reinterpret<ByteVar>()?.toKString()}")
-                continue
-            }
-
-            val path = pathRef.toKString().toPath()
-            print("$path")
 
             if (flags and kFSEventStreamEventFlagItemCreated != 0u && FileChangeEvent.Create in events) {
                 onEvent(FileChangeEvent.Create, path)
