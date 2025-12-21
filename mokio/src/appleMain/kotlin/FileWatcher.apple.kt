@@ -84,6 +84,10 @@ actual class FileWatcher actual constructor(
             val (path, fileId) = when (CFGetTypeID(data)) {
                 CFDictionaryGetTypeID() -> {
                     println("is dict.")
+                    println(CFDictionaryGetValue(
+                               data.reinterpret(),
+                              kFSEventStreamEventExtendedDataPathKey.toCFStringRef()
+                           ))
                     val cfPath: CFStringRef? = null //CFDictionaryGetValue(
                 //        data.reinterpret(),
                  //       kFSEventStreamEventExtendedDataPathKey.toCFStringRef()
