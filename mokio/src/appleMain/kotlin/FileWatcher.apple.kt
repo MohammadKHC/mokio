@@ -12,6 +12,7 @@ import platform.CoreFoundation.CFDictionaryGetTypeID
 import platform.CoreFoundation.CFDictionaryGetValue
 import platform.CoreFoundation.CFDictionaryRef
 import platform.CoreFoundation.CFGetTypeID
+import platform.CoreFoundation.CFNumberGetTypeID
 import platform.CoreFoundation.CFNumberGetValue
 import platform.CoreFoundation.CFNumberRef
 import platform.CoreFoundation.CFNumberType
@@ -84,10 +85,16 @@ actual class FileWatcher actual constructor(
             val (path, fileId) = when (CFGetTypeID(data)) {
                 CFDictionaryGetTypeID() -> {
                     println("is dict.")
-                    println(CFDictionaryGetValue(
-                               data.reinterpret(),
-                              kFSEventStreamEventExtendedDataPathKey.toCFStringRef()
-                           ))
+                    val path = CFDictionaryGetValue(
+                        data.reinterpret(),
+                        kFSEventStreamEventExtendedDataPathKey.toCFStringRef()
+                    )
+
+                    when (val typeId = CFGetTypeID(path)) {
+                        CFStringGetTypeID() -> println("path is string $typeId")
+                        CFNumberGetTypeID() -> println("path is number $typeId")
+                        else -> println("path is unknown: $typeId")
+                    }
                     val cfPath: CFStringRef? = null //CFDictionaryGetValue(
                 //        data.reinterpret(),
                  //       kFSEventStreamEventExtendedDataPathKey.toCFStringRef()
