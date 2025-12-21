@@ -55,7 +55,7 @@ actual class FileWatcher actual constructor(
                                          _: CPointer<ULongVar>? ->
                 clientCallBackInfo!!
                     .asStableRef<FileWatcher>().get()
-                    .dispatchEvents(numEvents.toLong(), eventPaths!!.reinterpret(), eventFlags!!)
+                    .dispatchEvents(numEvents.toLong(), eventPaths?.reinterpret() ?: return@staticCFunction, eventFlags ?: return@staticCFunction)
             },
             context = context,
             pathsToWatch = pathsToWatch,
@@ -84,10 +84,10 @@ actual class FileWatcher actual constructor(
             val (path, fileId) = when (CFGetTypeID(data)) {
                 CFDictionaryGetTypeID() -> {
                     println("is dict.")
-                    val cfPath: CFStringRef? = CFDictionaryGetValue(
-                        data.reinterpret(),
-                        kFSEventStreamEventExtendedDataPathKey.toCFStringRef()
-                    )?.reinterpret()
+                    val cfPath: CFStringRef? = null //CFDictionaryGetValue(
+                //        data.reinterpret(),
+                 //       kFSEventStreamEventExtendedDataPathKey.toCFStringRef()
+                 //   )?.reinterpret()
                     if (cfPath == null) {
                         println("cfPath is null.")
                         val flags = eventFlags[i]
