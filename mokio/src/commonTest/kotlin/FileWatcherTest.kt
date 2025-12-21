@@ -63,6 +63,56 @@ class FileWatcherTest {
         sleep(5)
     }
 
+    @Test
+    fun basicTestCopy() {
+        val dir = createTempDirectory()
+        FileWatcher(dir, recursive = true) { event, path ->
+            println("$event, $path")
+        }.startWatching()
+        sleep(5)
+        initMyDirectory(dir)
+
+        sleep(2)
+        println("Moving myDirectory to myNewDirectory")
+        FileSystem.SYSTEM.atomicMove(dir / "myDirectory", dir / "myNewDirectory")
+
+        sleep(2)
+        println("Writing to myNestedFile.")
+        FileSystem.SYSTEM.write(dir / "myNewDirectory/mySubDirectory/myNestedFile") {
+            writeUtf8("Bye!")
+        }
+
+        sleep(2)
+        println("Updating myFile mode to read only.")
+        FileSystem.SYSTEM.setFileMode(dir / "myNewDirectory/myFile", FileMode(FileMode.Type.RegularFile, permissions = setOf(
+            FileMode.Permission.OwnerRead, FileMode.Permission.OthersRead, FileMode.Permission.GroupRead)))
+
+        sleep(2)
+        println("Updating myFile mode to write only.")
+        FileSystem.SYSTEM.setFileMode(dir / "myNewDirectory/myFile", FileMode(FileMode.Type.RegularFile, permissions = setOf(
+            FileMode.Permission.OwnerWrite, FileMode.Permission.OthersWrite, FileMode.Permission.GroupWrite)))
+
+        sleep(2)
+        println("Updating myFile mode to execute only.")
+        FileSystem.SYSTEM.setFileMode(dir / "myNewDirectory/myFile", FileMode(FileMode.Type.RegularFile, permissions = setOf(
+            FileMode.Permission.OwnerExecute, FileMode.Permission.OthersExecute, FileMode.Permission.GroupExecute)))
+
+        sleep(2)
+        println("Updating myFile mode to all.")
+        FileSystem.SYSTEM.setFileMode(dir / "myNewDirectory/myFile", FileMode(FileMode.Type.RegularFile, permissions = FileMode.Permission.entries.toSet()))
+
+        sleep(2)
+        val time = Instant.fromEpochSeconds(Clock.System.now().epochSeconds - 10000)
+        println("Updating myFile last modified time to be $time.")
+        setLastModifiedTime(dir / "myNewDirectory/myFile", time)
+
+        sleep(2)
+        println("Updating myFile last access time to be $time.")
+        setLastAccessTime(dir / "myNewDirectory/myFile", time)
+
+        sleep(5)
+    }
+
     private fun initMyDirectory(parent: Path) {
         println("Creating myDirectory and it's children.")
         FileSystem.SYSTEM.createDirectory(parent / "myDirectory")

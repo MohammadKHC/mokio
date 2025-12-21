@@ -8,6 +8,7 @@ import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.toKString
 import kotlinx.cinterop.value
+import platform.CoreFoundation.CFNumberGetType
 import platform.CoreFoundation.CFNumberGetValue
 import platform.CoreFoundation.CFNumberRef
 import platform.CoreFoundation.CFStringCreateWithCString
@@ -16,6 +17,7 @@ import platform.CoreFoundation.CFStringGetLength
 import platform.CoreFoundation.CFStringGetMaximumSizeForEncoding
 import platform.CoreFoundation.CFStringRef
 import platform.CoreFoundation.kCFNumberLongType
+import platform.CoreFoundation.kCFNumberSInt64Type
 import platform.CoreFoundation.kCFStringEncodingUTF8
 
 internal fun String.toCFStringRef(): CFStringRef? =
@@ -37,6 +39,12 @@ internal fun CFStringRef.toKString(): String = memScoped {
 }
 
 internal fun CFNumberRef.toKLong(): Long = memScoped {
+    if (CFNumberGetType(this@toKLong) == kCFNumberLongType) {
+        println("is long")
+    }
+    if (CFNumberGetType(this@toKLong) == kCFNumberSInt64Type) {
+        println("is int64")
+    }
     alloc<LongVar> {
         CFNumberGetValue(this@toKLong, kCFNumberLongType, ptr)
     }.value

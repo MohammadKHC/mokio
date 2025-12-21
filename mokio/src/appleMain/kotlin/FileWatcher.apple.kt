@@ -74,6 +74,8 @@ actual class FileWatcher actual constructor(
         FSEventStreamStart(streamRef)
     }
 
+    private val pendingRenames = mutableMapOf<Long, Path>()
+
     fun dispatchEvents(
         eventsCount: Long,
         eventPaths: CFArrayRef,
@@ -89,14 +91,9 @@ actual class FileWatcher actual constructor(
                 pathDict,
                 kFSEventStreamEventExtendedDataPathKey.toCFStringRef()
             )!!.reinterpret()
-            val fileIdRef: CFNumberRef = CFDictionaryGetValue(
-                pathDict,
-                kFSEventStreamEventExtendedFileIDKey.toCFStringRef()
-            )!!.reinterpret()
             val path = pathRef.toKString().toPath()
-            val fileId = fileIdRef.toKLong()
 
-            print("$path $fileId")
+            print("$path")
             val flags = eventFlags[i]
             if (flags and kFSEventStreamEventFlagItemCreated != 0u)
                 print(" created")
@@ -116,6 +113,26 @@ actual class FileWatcher actual constructor(
                 print(" owner changed.")
             println()
 
+            if (flags and kFSEventStreamEventFlagItemRenamed != 0u) {
+                val fileIdRef: CFNumberRef = CFDictionaryGetValue(
+                    pathDict,
+                    kFSEventStreamEventExtendedFileIDKey.toCFStringRef()
+                )!!.reinterpret()
+                val fileId = fileIdRef.toKLong()
+                val oldPath = pendingRenames.remove(fileId)
+                if (oldPath == null) {
+                    pendingRenames[fileId] = path
+                } else {
+                    if (FileChangeEvent.Delete in events) {
+                        onEvent(FileChangeEvent.Delete, oldPath)
+                    }
+                    if (FileChangeEvent.Create in events) {
+                        onEvent(FileChangeEvent.Create, path)
+                    }
+                }
+                continue // Ignore other events on rename.
+            }
+
             if (flags and kFSEventStreamEventFlagItemCreated != 0u && FileChangeEvent.Create in events) {
                 onEvent(FileChangeEvent.Create, path)
             }
@@ -133,6 +150,16 @@ actual class FileWatcher actual constructor(
 
             if (flags and kFSEventStreamEventFlagItemRemoved != 0u && FileChangeEvent.Delete in events) {
                 onEvent(FileChangeEvent.Delete, path)
+            }
+        }
+
+        if (pendingRenames.isNotEmpty()) {
+            pendingRenames.values.removeAll {
+                if (FileChangeEvent.Delete in events) {
+                    onEvent(FileChangeEvent.Delete, it)
+                }
+                println("removing $it")
+                true
             }
         }
     }
