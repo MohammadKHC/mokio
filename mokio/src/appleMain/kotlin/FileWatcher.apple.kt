@@ -140,21 +140,19 @@ actual class FileWatcher actual constructor(
                         onEvent(FileChangeEvent.Create, path)
                     }
                 }
-                continue // Ignore other events on rename.
             }
 
-            if (flags and kFSEventStreamEventFlagItemCreated != 0u && FileChangeEvent.Create in events) {
+            if (flags and kFSEventStreamEventFlagItemCreated != 0u && FileChangeEvent.Create in events
+                // For some reason when a file is atomically moved we receive create alongside rename!
+                && (flags and kFSEventStreamEventFlagItemRenamed == 0u || FileSystem.SYSTEM.exists(path))) {
                 onEvent(FileChangeEvent.Create, path)
             }
-
             if (flags and kFSEventStreamEventFlagItemModified != 0u && FileChangeEvent.Modify in events) {
                 onEvent(FileChangeEvent.Modify, path)
             }
-
             if (flags and FS_EVENTS_ATTRIBUTES_MASK != 0u && FileChangeEvent.Attributes in events) {
                 onEvent(FileChangeEvent.Attributes, path)
             }
-
             if (flags and kFSEventStreamEventFlagItemRemoved != 0u && FileChangeEvent.Delete in events) {
                 onEvent(FileChangeEvent.Delete, path)
             }
