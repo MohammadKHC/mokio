@@ -65,8 +65,9 @@ class FileWatcherTest {
 
     @Test
     fun basicTestCopy() {
+        println("not recursive")
         val dir = createTempDirectory()
-        FileWatcher(dir, recursive = true) { event, path ->
+        FileWatcher(dir, recursive = false) { event, path ->
             println("$event, $path")
         }.startWatching()
         sleep(5)
@@ -109,6 +110,12 @@ class FileWatcherTest {
         sleep(2)
         println("Updating myFile last access time to be $time.")
         setLastAccessTime(dir / "myNewDirectory/myFile", time)
+
+        sleep(2)
+        println("Writing to myNewFile.")
+        FileSystem.SYSTEM.write(dir / "myNewFile") {
+            writeUtf8("Bye!")
+        }
 
         sleep(5)
     }

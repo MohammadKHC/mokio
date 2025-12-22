@@ -30,7 +30,7 @@ import platform.darwin.dispatch_queue_create
 
 actual class FileWatcher actual constructor(
     private val path: Path,
-    recursive: Boolean,
+    private val recursive: Boolean,
     private val events: Set<FileChangeEvent>,
     private val onEvent: FileEventListener
 ) {
@@ -62,7 +62,7 @@ actual class FileWatcher actual constructor(
             pathsToWatch = pathsToWatch,
             sinceWhen = kFSEventStreamEventIdSinceNow,
             latency = 0.2,
-            flags = kFSEventStreamCreateFlagFileEvents or
+            flags = (if (recursive) kFSEventStreamCreateFlagFileEvents else 0u) or
                     kFSEventStreamCreateFlagNoDefer or
                     kFSEventStreamCreateFlagUseCFTypes or
                     kFSEventStreamCreateFlagUseExtendedData
