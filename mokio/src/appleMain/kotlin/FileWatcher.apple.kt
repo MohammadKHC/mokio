@@ -62,7 +62,7 @@ actual class FileWatcher actual constructor(
             pathsToWatch = pathsToWatch,
             sinceWhen = kFSEventStreamEventIdSinceNow,
             latency = 0.2,
-            flags = (if (recursive) kFSEventStreamCreateFlagFileEvents else 0u) or
+            flags = kFSEventStreamCreateFlagFileEvents or
                     kFSEventStreamCreateFlagNoDefer or
                     kFSEventStreamCreateFlagUseCFTypes or
                     kFSEventStreamCreateFlagUseExtendedData
@@ -92,6 +92,8 @@ actual class FileWatcher actual constructor(
                 kFSEventStreamEventExtendedDataPathKey.toCFStringRef()
             )!!.reinterpret()
             val path = pathRef.toKString().toPath()
+            if (!recursive && path.parent != this.path)
+                continue
 
             print("$path")
             val flags = eventFlags[i]
