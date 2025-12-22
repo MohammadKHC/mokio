@@ -60,6 +60,10 @@ class FileWatcherTest {
         println("Updating myFile last access time to be $time.")
         setLastAccessTime(dir / "myNewDirectory/myFile", time)
 
+        sleep(2)
+        println("Updating dir last modified time to be $time.")
+        setLastModifiedTime(dir, time)
+
         sleep(5)
     }
 

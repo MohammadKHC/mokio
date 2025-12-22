@@ -1,6 +1,7 @@
 package com.mohammedkhc.io
 
 import kotlinx.cinterop.*
+import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
 import platform.CoreFoundation.CFArrayCreate
@@ -56,7 +57,11 @@ actual class FileWatcher actual constructor(
                                          _: CPointer<ULongVar>? ->
                 clientCallBackInfo!!
                     .asStableRef<FileWatcher>().get()
-                    .dispatchEvents(numEvents.toLong(), eventPaths?.reinterpret() ?: return@staticCFunction, eventFlags ?: return@staticCFunction)
+                    .dispatchEvents(
+                        numEvents.toLong(),
+                        eventPaths?.reinterpret() ?: return@staticCFunction,
+                        eventFlags ?: return@staticCFunction
+                    )
             },
             context = context,
             pathsToWatch = pathsToWatch,
@@ -92,8 +97,13 @@ actual class FileWatcher actual constructor(
                 kFSEventStreamEventExtendedDataPathKey.toCFStringRef()
             )!!.reinterpret()
             val path = pathRef.toKString().toPath()
-            if (!recursive && path.parent != this.path)
-                continue
+            if (!recursive &&
+                path != this.path && path.parent != this.path && run {
+                    val realParent = FileSystem.SYSTEM.canonicalize(this.path)
+                    val realPath = FileSystem.SYSTEM.canonicalize(path)
+                    realPath != realParent && realPath.parent != realParent
+                }
+            ) continue
 
             print("$path")
             val flags = eventFlags[i]
@@ -143,10 +153,7 @@ actual class FileWatcher actual constructor(
                 onEvent(FileChangeEvent.Modify, path)
             }
 
-            if (flags and (kFSEventStreamEventFlagItemInodeMetaMod or
-                        kFSEventStreamEventFlagItemChangeOwner or
-                        kFSEventStreamEventFlagItemXattrMod) != 0u && FileChangeEvent.Delete in events
-            ) {
+            if (flags and FS_EVENTS_ATTRIBUTES_MASK != 0u && FileChangeEvent.Attributes in events) {
                 onEvent(FileChangeEvent.Attributes, path)
             }
 
@@ -160,7 +167,6 @@ actual class FileWatcher actual constructor(
                 if (FileChangeEvent.Delete in events) {
                     onEvent(FileChangeEvent.Delete, it)
                 }
-                println("removing $it")
                 true
             }
         }
@@ -173,5 +179,11 @@ actual class FileWatcher actual constructor(
         streamRef = null
         ref?.dispose()
         ref = null
+    }
+
+    private companion object {
+        val FS_EVENTS_ATTRIBUTES_MASK = kFSEventStreamEventFlagItemInodeMetaMod or
+                kFSEventStreamEventFlagItemChangeOwner or
+                kFSEventStreamEventFlagItemXattrMod
     }
 }
