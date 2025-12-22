@@ -145,6 +145,9 @@ actual class FileWatcher actual constructor(
                     }
                 }
                 println()
+                if (event.NextEntryOffset == 0u) {
+                    break
+                }
                 offset += event.NextEntryOffset.toLong()
             }
         }
