@@ -43,6 +43,7 @@ import platform.windows.FILE_NOTIFY_CHANGE_DIR_NAME
 import platform.windows.FILE_NOTIFY_CHANGE_FILE_NAME
 import platform.windows.FILE_NOTIFY_CHANGE_LAST_ACCESS
 import platform.windows.FILE_NOTIFY_CHANGE_LAST_WRITE
+import platform.windows.FILE_NOTIFY_CHANGE_SECURITY
 import platform.windows.FILE_NOTIFY_CHANGE_SIZE
 import platform.windows.FILE_NOTIFY_INFORMATION
 import platform.windows.FILE_SHARE_DELETE
@@ -82,13 +83,7 @@ actual class FileWatcher actual constructor(
                         lpBuffer = buffer.reinterpret<DWORDVar>().ptr,
                         nBufferLength = notifyBufferSize.toUInt(),
                         bWatchSubtree = if (recursive) 1 else 0,
-                        dwNotifyFilter = FILE_NOTIFY_CHANGE_FILE_NAME.toUInt()
-                                or FILE_NOTIFY_CHANGE_DIR_NAME.toUInt()
-                                or FILE_NOTIFY_CHANGE_ATTRIBUTES.toUInt()
-                                or FILE_NOTIFY_CHANGE_SIZE.toUInt()
-                                or FILE_NOTIFY_CHANGE_LAST_WRITE.toUInt()
-                                or FILE_NOTIFY_CHANGE_LAST_ACCESS.toUInt()
-                                or FILE_NOTIFY_CHANGE_CREATION.toUInt(),
+                        dwNotifyFilter = FILE_NOTIFY_ALL.toUInt(),
                         lpBytesReturned = lengthVar.ptr,
                         lpOverlapped = null,
                         lpCompletionRoutine = null
@@ -150,7 +145,7 @@ actual class FileWatcher actual constructor(
                     }
                 }
                 println()
-                offset = event.NextEntryOffset.toLong()
+                offset += event.NextEntryOffset.toLong()
             }
         }
     }
@@ -160,6 +155,14 @@ actual class FileWatcher actual constructor(
     }
 
     private companion object {
+        const val FILE_NOTIFY_ALL = FILE_NOTIFY_CHANGE_FILE_NAME or
+                FILE_NOTIFY_CHANGE_DIR_NAME or
+                FILE_NOTIFY_CHANGE_ATTRIBUTES or
+                FILE_NOTIFY_CHANGE_SIZE or
+                FILE_NOTIFY_CHANGE_LAST_WRITE or
+                FILE_NOTIFY_CHANGE_LAST_ACCESS or
+                FILE_NOTIFY_CHANGE_CREATION or
+                FILE_NOTIFY_CHANGE_SECURITY
         val notifyBufferSize = 5 * (sizeOf<FILE_NOTIFY_INFORMATION>() + 255 + 1)
     }
 }
