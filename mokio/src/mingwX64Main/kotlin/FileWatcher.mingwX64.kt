@@ -1,51 +1,165 @@
 package com.mohammedkhc.io
 
+import kotlinx.atomicfu.AtomicBoolean
+import kotlinx.atomicfu.AtomicInt
+import kotlinx.atomicfu.atomic
+import kotlinx.cinterop.ByteVar
+import kotlinx.cinterop.UIntVar
 import kotlinx.cinterop.alignOf
+import kotlinx.cinterop.alloc
+import kotlinx.cinterop.allocArray
+import kotlinx.cinterop.convert
+import kotlinx.cinterop.get
+import kotlinx.cinterop.interpretPointed
+import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.nativeHeap
+import kotlinx.cinterop.ptr
+import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.sizeOf
+import kotlinx.cinterop.toKString
+import kotlinx.cinterop.value
 import okio.Path
+import platform.posix.EBADF
+import platform.posix.EINTR
+import platform.posix.close
+import platform.posix.errno
+import platform.posix.read
+import platform.windows.CloseHandle
 import platform.windows.CreateFileW
 import platform.windows.DWORD
 import platform.windows.DWORDVar
+import platform.windows.ERROR_INVALID_HANDLE
+import platform.windows.FILE_ACTION_ADDED
+import platform.windows.FILE_ACTION_MODIFIED
+import platform.windows.FILE_ACTION_REMOVED
+import platform.windows.FILE_ACTION_RENAMED_NEW_NAME
+import platform.windows.FILE_ACTION_RENAMED_OLD_NAME
 import platform.windows.FILE_FLAG_BACKUP_SEMANTICS
 import platform.windows.FILE_FLAG_OVERLAPPED
 import platform.windows.FILE_LIST_DIRECTORY
+import platform.windows.FILE_NOTIFY_CHANGE_ATTRIBUTES
+import platform.windows.FILE_NOTIFY_CHANGE_CREATION
+import platform.windows.FILE_NOTIFY_CHANGE_DIR_NAME
+import platform.windows.FILE_NOTIFY_CHANGE_FILE_NAME
+import platform.windows.FILE_NOTIFY_CHANGE_LAST_ACCESS
+import platform.windows.FILE_NOTIFY_CHANGE_LAST_WRITE
+import platform.windows.FILE_NOTIFY_CHANGE_SIZE
+import platform.windows.FILE_NOTIFY_INFORMATION
 import platform.windows.FILE_SHARE_DELETE
 import platform.windows.FILE_SHARE_READ
 import platform.windows.FILE_SHARE_WRITE
+import platform.windows.GetLastError
 import platform.windows.OPEN_EXISTING
 import platform.windows.ReadDirectoryChangesW
 
 actual class FileWatcher actual constructor(
     private val path: Path,
     private val recursive: Boolean,
-    events: Set<FileChangeEvent>,
+    private val events: Set<FileChangeEvent>,
     private val onEvent: FileEventListener
 ) {
+    private val handle = CreateFileW(
+        lpFileName = path.toString(),
+        dwDesiredAccess = FILE_LIST_DIRECTORY.toUInt(),
+        dwShareMode = FILE_SHARE_DELETE.toUInt() or FILE_SHARE_READ.toUInt() or FILE_SHARE_WRITE.toUInt(),
+        lpSecurityAttributes = null,
+        dwCreationDisposition = OPEN_EXISTING.toUInt(),
+        dwFlagsAndAttributes = FILE_FLAG_BACKUP_SEMANTICS.toUInt() or FILE_FLAG_OVERLAPPED.toUInt(),
+        hTemplateFile = null
+    ) ?: throw lastErrorToIOException()
+
     actual fun startWatching() {
-        val handle = CreateFileW(
-            lpFileName = path.toString(),
-            dwDesiredAccess = FILE_LIST_DIRECTORY.toUInt(),
-            dwShareMode = FILE_SHARE_DELETE.toUInt() or FILE_SHARE_READ.toUInt() or FILE_SHARE_WRITE.toUInt(),
-            lpSecurityAttributes = null,
-            dwCreationDisposition = OPEN_EXISTING.toUInt(),
-            dwFlagsAndAttributes = FILE_FLAG_BACKUP_SEMANTICS.toUInt() or FILE_FLAG_OVERLAPPED.toUInt(),
-            hTemplateFile = null
-        )
-        // TODO
-        val buffer = nativeHeap.alloc(sizeOf<DWORDVar>(), alignOf<DWORDVar>())
-        ReadDirectoryChangesW(
-            hDirectory = handle,
-            lpBuffer = null,
-            nBufferLength = 1u,
-            bWatchSubtree = if (recursive) 1 else 0,
-            dwNotifyFilter = 0u,
-            lpBytesReturned = null,
-            lpOverlapped = null,
-            lpCompletionRoutine =null
-        )
+        thread(::watch)
+    }
+
+    private fun watch() = memScoped {
+        val buffer = alloc(notifyBufferSize, alignOf<FILE_NOTIFY_INFORMATION>())
+        while (true) {
+            val length = memScoped {
+                val lengthVar = alloc<UIntVar>()
+                if (ReadDirectoryChangesW(
+                        hDirectory = handle,
+                        lpBuffer = buffer.reinterpret<DWORDVar>().ptr,
+                        nBufferLength = notifyBufferSize.toUInt(),
+                        bWatchSubtree = if (recursive) 1 else 0,
+                        dwNotifyFilter = FILE_NOTIFY_CHANGE_FILE_NAME.toUInt()
+                                or FILE_NOTIFY_CHANGE_DIR_NAME.toUInt()
+                                or FILE_NOTIFY_CHANGE_ATTRIBUTES.toUInt()
+                                or FILE_NOTIFY_CHANGE_SIZE.toUInt()
+                                or FILE_NOTIFY_CHANGE_LAST_WRITE.toUInt()
+                                or FILE_NOTIFY_CHANGE_LAST_ACCESS.toUInt()
+                                or FILE_NOTIFY_CHANGE_CREATION.toUInt(),
+                        lpBytesReturned = lengthVar.ptr,
+                        lpOverlapped = null,
+                        lpCompletionRoutine = null
+                    ) == 0
+                ) {
+                    if (GetLastError().toInt() == ERROR_INVALID_HANDLE) {
+                        break
+                    }
+                    throw lastErrorToIOException()
+                }
+                lengthVar.value.toLong()
+            }
+            if (length < sizeOf<FILE_NOTIFY_INFORMATION>()) {
+                error("ReadDirectoryChanges got a short event.")
+            }
+            var offset = 0L
+            while (offset < length) {
+                val event = interpretPointed<FILE_NOTIFY_INFORMATION>(buffer.rawPtr + offset)
+                val path = CharArray(event.FileNameLength.toInt()).apply {
+                    for (i in 0 until event.FileNameLength.toInt()) {
+                        this[i] = event.FileName[i].toInt().toChar()
+                    }
+                    print(concatToString())
+                }.concatToString().let(path::resolve)
+                when (event.Action.toInt()) {
+                    FILE_ACTION_ADDED -> {
+                        print(" created")
+                        if (FileChangeEvent.Create in events) {
+                            onEvent(FileChangeEvent.Create, path)
+                        }
+                    }
+
+                    FILE_ACTION_MODIFIED -> {
+                        print(" modified")
+                        if (FileChangeEvent.Modify in events) {
+                            onEvent(FileChangeEvent.Modify, path)
+                        }
+                    }
+
+                    FILE_ACTION_REMOVED -> {
+                        print(" removed")
+                        if (FileChangeEvent.Delete in events) {
+                            onEvent(FileChangeEvent.Delete, path)
+                        }
+                    }
+
+                    FILE_ACTION_RENAMED_OLD_NAME -> {
+                        print(" renamed from")
+                        if (FileChangeEvent.Delete in events) {
+                            onEvent(FileChangeEvent.Delete, path)
+                        }
+                    }
+
+                    FILE_ACTION_RENAMED_NEW_NAME -> {
+                        print(" renamed to")
+                        if (FileChangeEvent.Create in events) {
+                            onEvent(FileChangeEvent.Create, path)
+                        }
+                    }
+                }
+                println()
+                offset = event.NextEntryOffset.toLong()
+            }
+        }
     }
 
     actual fun stopWatching() {
+        CloseHandle(handle).ensureSuccess()
+    }
+
+    private companion object {
+        val notifyBufferSize = 5 * (sizeOf<FILE_NOTIFY_INFORMATION>() + 255 + 1)
     }
 }
