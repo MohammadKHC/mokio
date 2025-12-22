@@ -37,6 +37,7 @@ actual class FileWatcher actual constructor(
 ) {
     private var ref: StableRef<FileWatcher>? = null
     private var streamRef: FSEventStreamRef? = null
+    private val canonicalizedPath = FileSystem.SYSTEM.canonicalize(path)
 
     actual fun startWatching() {
         ref = StableRef.create(this)
@@ -98,11 +99,8 @@ actual class FileWatcher actual constructor(
             )!!.reinterpret()
             val path = pathRef.toKString().toPath()
             if (!recursive &&
-                path != this.path && path.parent != this.path && run {
-                    val realParent = FileSystem.SYSTEM.canonicalize(this.path)
-                    val realPath = FileSystem.SYSTEM.canonicalize(path)
-                    realPath != realParent && realPath.parent != realParent
-                }
+                path != this.path && path.parent != this.path &&
+                path != canonicalizedPath && path.parent != canonicalizedPath
             ) continue
 
             print("$path")
