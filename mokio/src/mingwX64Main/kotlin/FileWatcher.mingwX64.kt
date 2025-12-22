@@ -102,12 +102,9 @@ actual class FileWatcher actual constructor(
             var offset = 0L
             while (offset < length) {
                 val event = interpretPointed<FILE_NOTIFY_INFORMATION>(buffer.rawPtr + offset)
-                val path = CharArray(event.FileNameLength.toInt()).apply {
-                    for (i in 0 until event.FileNameLength.toInt()) {
-                        this[i] = event.FileName[i].toInt().toChar()
-                    }
-                    print(concatToString())
-                }.concatToString().let(path::resolve)
+                val path = CharArray(event.FileNameLength.toInt() / 2) {
+                    event.FileName[it].toInt().toChar()
+                }.concatToString().also(::print).let(path::resolve)
                 when (event.Action.toInt()) {
                     FILE_ACTION_ADDED -> {
                         print(" created")
