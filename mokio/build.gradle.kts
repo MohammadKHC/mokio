@@ -62,6 +62,28 @@ kotlin {
     }
 }
 
+tasks.register<Copy>("copyMokioJniLibrary") {
+    val os = org.gradle.internal.os.OperatingSystem.current()
+    val arch = when (System.getProperty("os.arch")) {
+        "amd64" -> "X64"
+        "aarch64" -> "Arm64"
+        else -> throw GradleException("${System.getProperty("os.arch")} is not supported in Kotlin/Native")
+    }
+    val target = when {
+        os.isLinux -> "linux"
+        os.isMacOsX -> "macos"
+        os.isWindows -> "mingwX64"
+        else -> throw GradleException("Host OS is not supported in Kotlin/Native")
+    } + arch
+    dependsOn(":mokio-jni:linkReleaseShared${target.replaceFirstChar(Char::titlecase)}")
+    val libraryName = System.mapLibraryName("mokio_jni")
+    inputs.file("../mokio-jni/build/bin/$target/releaseShared/$libraryName")
+    outputs.file(sourceSets["jvmMain"].output.resourcesDir!!.resolve(libraryName))
+    from(inputs.files.first())
+    into(outputs.files.first().parentFile)
+}
+tasks["jvmProcessResources"].dependsOn("copyMokioJniLibrary")
+
 group = "com.mohammedkhc"
 version = "1.0.0"
 
