@@ -1,4 +1,8 @@
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.konan.target.Family
+import org.jetbrains.kotlin.konan.target.HostManager
+import org.jetbrains.kotlin.konan.target.KonanTarget
+import org.jetbrains.kotlin.konan.target.presetName
 import java.net.URI
 
 plugins {
@@ -62,27 +66,32 @@ kotlin {
     }
 }
 
-tasks.register<Copy>("copyMokioJniLibrary") {
-    val os = org.gradle.internal.os.OperatingSystem.current()
-    val arch = when (System.getProperty("os.arch")) {
-        "amd64" -> "X64"
-        "aarch64" -> "Arm64"
-        else -> throw GradleException("${System.getProperty("os.arch")} is not supported in Kotlin/Native")
-    }
-    val target = when {
-        os.isLinux -> "linux"
-        os.isMacOsX -> "macos"
-        os.isWindows -> "mingwX64"
-        else -> throw GradleException("Host OS is not supported in Kotlin/Native")
-    } + arch
-    dependsOn(":mokio-jni:linkReleaseShared${target.replaceFirstChar(Char::titlecase)}")
-    val libraryName = System.mapLibraryName("mokio_jni")
-    inputs.file("../mokio-jni/build/bin/$target/releaseShared/$libraryName")
-    outputs.file(sourceSets["jvmMain"].output.resourcesDir!!.resolve(libraryName))
-    from(inputs.files.first())
-    into(outputs.files.first().parentFile)
+val supportedJniTargets = HostManager().enabled.filter {
+    ((!HostManager.hostIsMingw && it.family == Family.LINUX)
+            || it.family == Family.OSX || it.family == Family.MINGW) &&
+            it !in KonanTarget.deprecatedTargets
 }
-tasks["jvmProcessResources"].dependsOn("copyMokioJniLibrary")
+
+supportedJniTargets.forEach {
+    tasks.register<Copy>("packageMokioJniLibrary${it.presetName.capitalized}") {
+        val jvmResourcesDir = sourceSets["jvmMain"].output.resourcesDir!!
+        dependsOn(":mokio-jni:linkReleaseShared${it.presetName.capitalized}")
+        val prefix = "${it.family.dynamicPrefix}mokio_jni"
+        val suffix = ".${it.family.dynamicSuffix}"
+        val path = "../mokio-jni/build/bin/${it.presetName}/releaseShared/$prefix$suffix"
+        val newLibraryName = "${prefix}_${it.architecture.name.lowercase()}$suffix"
+        inputs.file(path)
+        from(path) { rename { newLibraryName } }
+        outputs.file(jvmResourcesDir.resolve(newLibraryName))
+        into(jvmResourcesDir)
+    }
+}
+tasks["jvmProcessResources"].dependsOn(
+    "packageMokioJniLibrary${HostManager.host.presetName.capitalized}"
+)
+
+val String.capitalized
+    get() = replaceFirstChar(Char::uppercase)
 
 group = "com.mohammedkhc"
 version = "1.0.0"

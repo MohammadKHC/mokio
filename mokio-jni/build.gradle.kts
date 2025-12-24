@@ -1,43 +1,30 @@
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
-import org.gradle.internal.os.OperatingSystem
+import org.jetbrains.kotlin.konan.target.HostManager
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
 }
 
 kotlin {
-    val os = OperatingSystem.current()
-    when {
-        os.isLinux -> {
-            linuxX64()
-            linuxArm64()
-        }
-
-        os.isMacOsX -> {
-            macosX64()
-            macosArm64()
-        }
-
-        os.isWindows -> mingwX64()
-        else -> throw GradleException("Host OS is not supported in Kotlin/Native")
+    if (!HostManager.hostIsMingw) {
+        linuxX64()
+        linuxArm64()
     }
-
+    if (HostManager.hostIsMac) {
+        macosX64()
+        macosArm64()
+    }
+    mingwX64()
 
     targets.all {
         if (this !is KotlinNativeTarget) return@all
         compilations["main"].cinterops.create("jni") {
             packageName("kotlinx.jni")
             val jniDir = File(System.getProperty("java.home"), "include")
-            val jniOsDirName = when {
-                os.isLinux -> "linux"
-                os.isMacOsX -> "darwin"
-                os.isWindows -> "win32"
-                else -> throw GradleException("Host OS is not supported in Kotlin/Native")
-            }
             includeDirs(
                 jniDir,
-                jniDir.resolve(jniOsDirName)
+                jniDir.resolve(HostManager.jniHostPlatformIncludeDir)
             )
             header(jniDir.resolve("jni.h"))
         }

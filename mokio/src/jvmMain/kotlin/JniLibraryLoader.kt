@@ -6,10 +6,15 @@ internal object JniLibraryLoader {
     private const val LIBRARY_NAME = "mokio_jni"
 
     fun load() {
-        val libraryName = System.mapLibraryName(LIBRARY_NAME)
+        val arch = when (System.getProperty("os.arch")) {
+            "amd64", "x86_64" -> "x64"
+            "arm64", "aarch64" -> "arm64"
+            else -> error("Unsupported arch.")
+        }
+        val libraryName = System.mapLibraryName("${LIBRARY_NAME}_$arch")
         val libraryFile = File.createTempFile(
             libraryName.substringBeforeLast('.'),
-            libraryName.substringAfterLast('.')
+            libraryName.substring(libraryName.lastIndexOf('.'))
         )
         JniLibraryLoader.javaClass.classLoader.getResourceAsStream(libraryName)!!.use {
             libraryFile.outputStream().use(it::copyTo)
