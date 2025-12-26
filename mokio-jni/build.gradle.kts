@@ -17,8 +17,7 @@ kotlin {
     }
     mingwX64()
 
-    targets.all {
-        if (this !is KotlinNativeTarget) return@all
+    targets.withType<KotlinNativeTarget>().configureEach {
         compilations["main"].cinterops.create("jni") {
             packageName("kotlinx.jni")
             val jniDir = File(System.getProperty("java.home"), "include")
