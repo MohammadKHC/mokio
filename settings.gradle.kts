@@ -16,4 +16,3 @@ dependencyResolutionManagement {
 
 rootProject.name = "Mokio"
 include(":mokio")
-include(":mokio-jni")

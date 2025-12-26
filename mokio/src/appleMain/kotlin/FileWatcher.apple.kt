@@ -4,28 +4,7 @@ import kotlinx.cinterop.*
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
-import platform.CoreFoundation.CFArrayCreate
-import platform.CoreFoundation.CFArrayGetValueAtIndex
-import platform.CoreFoundation.CFArrayRef
-import platform.CoreFoundation.CFArrayRefVar
-import platform.CoreFoundation.CFDictionaryGetCount
-import platform.CoreFoundation.CFDictionaryGetTypeID
-import platform.CoreFoundation.CFDictionaryGetValue
-import platform.CoreFoundation.CFDictionaryRef
-import platform.CoreFoundation.CFGetTypeID
-import platform.CoreFoundation.CFNumberGetTypeID
-import platform.CoreFoundation.CFNumberGetValue
-import platform.CoreFoundation.CFNumberRef
-import platform.CoreFoundation.CFNumberType
-import platform.CoreFoundation.CFStringCreateWithCString
-import platform.CoreFoundation.CFStringGetCString
-import platform.CoreFoundation.CFStringGetLength
-import platform.CoreFoundation.CFStringGetMaximumSizeForEncoding
-import platform.CoreFoundation.CFStringGetTypeID
-import platform.CoreFoundation.CFStringRef
-import platform.CoreFoundation.CFStringRefVar
-import platform.CoreFoundation.kCFNumberLongType
-import platform.CoreFoundation.kCFStringEncodingUTF8
+import platform.CoreFoundation.*
 import platform.CoreServices.*
 import platform.darwin.dispatch_queue_create
 
@@ -87,7 +66,6 @@ actual class FileWatcher actual constructor(
         eventPaths: CFArrayRef,
         eventFlags: CPointer<UIntVar>
     ) {
-        println("event count: $eventsCount")
         for (i in 0L until eventsCount) {
             val pathDict: CFDictionaryRef = CFArrayGetValueAtIndex(
                 eventPaths,
@@ -103,26 +81,7 @@ actual class FileWatcher actual constructor(
                 path != canonicalizedPath && path.parent != canonicalizedPath
             ) continue
 
-            print("$path")
             val flags = eventFlags[i]
-            if (flags and kFSEventStreamEventFlagItemCreated != 0u)
-                print(" created")
-            if (flags and kFSEventStreamEventFlagItemModified != 0u)
-                print(" modified")
-            if (flags and kFSEventStreamEventFlagItemXattrMod != 0u)
-                print(" xattr")
-            if (flags and kFSEventStreamEventFlagItemRemoved != 0u)
-                print(" removed")
-            if (flags and kFSEventStreamEventFlagItemRenamed != 0u)
-                print(" renamed")
-            if (flags and kFSEventStreamEventFlagItemCloned != 0u)
-                print(" cloned")
-            if (flags and kFSEventStreamEventFlagItemInodeMetaMod != 0u)
-                print(" inodeMetaMod")
-            if (flags and kFSEventStreamEventFlagItemChangeOwner != 0u)
-                print(" owner changed.")
-            println()
-
             if (flags and kFSEventStreamEventFlagItemRenamed != 0u) {
                 val fileIdRef: CFNumberRef = CFDictionaryGetValue(
                     pathDict,

@@ -4,13 +4,7 @@ import kotlinx.cinterop.*
 import okio.FileSystem
 import okio.Path
 import platform.linux.*
-import platform.posix.EBADF
-import platform.posix.EINTR
-import platform.posix.NAME_MAX
-import platform.posix.close
-import platform.posix.errno
-import platform.posix.read
-import kotlin.sequences.forEach
+import platform.posix.*
 
 actual class FileWatcher actual constructor(
     private val path: Path,
@@ -27,18 +21,17 @@ actual class FileWatcher actual constructor(
     private val watchers = mutableMapOf<Int, Watcher>()
     private val mutex = Mutex()
 
-    init {
-        thread("FileWatcher", ::watch)
-    }
-
-    actual fun startWatching() = mutex.withLock {
-        watchPath(path)
-        if (recursive) {
-            FileSystem.SYSTEM
-                .listRecursively(path)
-                .filter(FileSystem.SYSTEM::isDirectory)
-                .forEach(::watchPath)
+    actual fun startWatching() {
+        mutex.withLock {
+            watchPath(path)
+            if (recursive) {
+                FileSystem.SYSTEM
+                    .listRecursively(path)
+                    .filter(FileSystem.SYSTEM::isDirectory)
+                    .forEach(::watchPath)
+            }
         }
+        thread("FileWatcher", ::watch)
     }
 
     private fun watchPath(path: Path) {
@@ -95,24 +88,6 @@ actual class FileWatcher actual constructor(
             var offset = 0L
             while (offset < length) {
                 val event = interpretPointed<inotify_event>(buffer.rawPtr + offset)
-                print((if (event.len > 0u) event.name.toKString() else null)?.let(path::resolve) ?: path)
-                if (event.mask.toInt() and IN_CREATE != 0)
-                    print(" created")
-                if (event.mask.toInt() and IN_MODIFY != 0)
-                    print(" modified")
-                if (event.mask.toInt() and IN_ATTRIB != 0)
-                    print(" attributes")
-                if (event.mask.toInt() and IN_DELETE != 0)
-                    print(" removed")
-                if (event.mask.toInt() and IN_MOVED_FROM != 0)
-                    print(" renamed from")
-                if (event.mask.toInt() and IN_MOVED_TO != 0)
-                    print(" renamed to")
-                if (event.mask.toInt() and IN_DELETE_SELF != 0)
-                    print(" removed self")
-                if (event.mask.toInt() and IN_MOVE_SELF != 0)
-                    print(" moved self")
-                println()
                 mutex.withLock { watchers[event.wd] }?.apply {
                     val name = if (event.len > 0u) event.name.toKString() else null
                     onRawEvent(event, name?.let(path::resolve) ?: path)

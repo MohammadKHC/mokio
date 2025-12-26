@@ -3,7 +3,6 @@ package com.mohammedkhc.io
 import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.convert
-import platform.posix.fsync
 
 fun FileDescriptor(fd: Int) =
     FileDescriptor(FileDescriptorHandle(fd))

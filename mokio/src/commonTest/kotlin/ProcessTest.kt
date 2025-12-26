@@ -1,6 +1,8 @@
 package com.mohammedkhc.io
 
-import okio.*
+import okio.FileSystem
+import okio.SYSTEM
+import okio.buffer
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals

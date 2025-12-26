@@ -1,10 +1,6 @@
 import org.gradle.kotlin.dsl.withType
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.tasks.KotlinNativeCompile
-import org.jetbrains.kotlin.konan.target.Family
-import org.jetbrains.kotlin.konan.target.HostManager
-import org.jetbrains.kotlin.konan.target.KonanTarget
-import org.jetbrains.kotlin.konan.target.presetName
 import java.net.URI
 
 plugins {
@@ -72,33 +68,6 @@ tasks.withType<KotlinNativeCompile>().configureEach {
         optIn.add("kotlinx.cinterop.ExperimentalForeignApi")
     }
 }
-
-val supportedJniTargets = HostManager().enabled.filter {
-    ((!HostManager.hostIsMingw && it.family == Family.LINUX)
-            || it.family == Family.OSX || it.family == Family.MINGW) &&
-            it !in KonanTarget.deprecatedTargets
-}
-
-supportedJniTargets.forEach {
-    tasks.register<Copy>("packageMokioJniLibrary${it.presetName.capitalized}") {
-        val jvmResourcesDir = sourceSets["jvmMain"].output.resourcesDir!!
-        dependsOn(":mokio-jni:linkReleaseShared${it.presetName.capitalized}")
-        val prefix = "${it.family.dynamicPrefix}mokio_jni"
-        val suffix = ".${it.family.dynamicSuffix}"
-        val path = "../mokio-jni/build/bin/${it.presetName}/releaseShared/$prefix$suffix"
-        val newLibraryName = "${prefix}_${it.architecture.name.lowercase()}$suffix"
-        inputs.file(path)
-        from(path) { rename { newLibraryName } }
-        outputs.file(jvmResourcesDir.resolve(newLibraryName))
-        into(jvmResourcesDir)
-    }
-}
-tasks["jvmProcessResources"].dependsOn(
-    "packageMokioJniLibrary${HostManager.host.presetName.capitalized}"
-)
-
-val String.capitalized
-    get() = replaceFirstChar(Char::uppercase)
 
 group = "com.mohammedkhc"
 version = "1.0.0"

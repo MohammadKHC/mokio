@@ -1,57 +1,8 @@
 package com.mohammedkhc.io
 
-import kotlinx.atomicfu.AtomicBoolean
-import kotlinx.atomicfu.AtomicInt
-import kotlinx.atomicfu.atomic
-import kotlinx.cinterop.ByteVar
-import kotlinx.cinterop.UIntVar
-import kotlinx.cinterop.alignOf
-import kotlinx.cinterop.alloc
-import kotlinx.cinterop.allocArray
-import kotlinx.cinterop.convert
-import kotlinx.cinterop.get
-import kotlinx.cinterop.interpretPointed
-import kotlinx.cinterop.memScoped
-import kotlinx.cinterop.nativeHeap
-import kotlinx.cinterop.ptr
-import kotlinx.cinterop.reinterpret
-import kotlinx.cinterop.sizeOf
-import kotlinx.cinterop.toKString
-import kotlinx.cinterop.value
+import kotlinx.cinterop.*
 import okio.Path
-import platform.posix.EBADF
-import platform.posix.EINTR
-import platform.posix.close
-import platform.posix.errno
-import platform.posix.read
-import platform.windows.CloseHandle
-import platform.windows.CreateFileW
-import platform.windows.DWORD
-import platform.windows.DWORDVar
-import platform.windows.ERROR_INVALID_HANDLE
-import platform.windows.FILE_ACTION_ADDED
-import platform.windows.FILE_ACTION_MODIFIED
-import platform.windows.FILE_ACTION_REMOVED
-import platform.windows.FILE_ACTION_RENAMED_NEW_NAME
-import platform.windows.FILE_ACTION_RENAMED_OLD_NAME
-import platform.windows.FILE_FLAG_BACKUP_SEMANTICS
-import platform.windows.FILE_FLAG_OVERLAPPED
-import platform.windows.FILE_LIST_DIRECTORY
-import platform.windows.FILE_NOTIFY_CHANGE_ATTRIBUTES
-import platform.windows.FILE_NOTIFY_CHANGE_CREATION
-import platform.windows.FILE_NOTIFY_CHANGE_DIR_NAME
-import platform.windows.FILE_NOTIFY_CHANGE_FILE_NAME
-import platform.windows.FILE_NOTIFY_CHANGE_LAST_ACCESS
-import platform.windows.FILE_NOTIFY_CHANGE_LAST_WRITE
-import platform.windows.FILE_NOTIFY_CHANGE_SECURITY
-import platform.windows.FILE_NOTIFY_CHANGE_SIZE
-import platform.windows.FILE_NOTIFY_INFORMATION
-import platform.windows.FILE_SHARE_DELETE
-import platform.windows.FILE_SHARE_READ
-import platform.windows.FILE_SHARE_WRITE
-import platform.windows.GetLastError
-import platform.windows.OPEN_EXISTING
-import platform.windows.ReadDirectoryChangesW
+import platform.windows.*
 
 actual class FileWatcher actual constructor(
     private val path: Path,
@@ -104,47 +55,23 @@ actual class FileWatcher actual constructor(
                 val event = interpretPointed<FILE_NOTIFY_INFORMATION>(buffer.rawPtr + offset)
                 val path = CharArray(event.FileNameLength.toInt() / 2) {
                     event.FileName[it].toInt().toChar()
-                }.concatToString().also(::print).let(path::resolve)
+                }.concatToString().let(path::resolve)
                 when (event.Action.toInt()) {
-                    FILE_ACTION_ADDED -> {
-                        print(" created")
-                        if (FileChangeEvent.Create in events) {
-                            onEvent(FileChangeEvent.Create, path)
-                        }
+                    FILE_ACTION_ADDED,
+                    FILE_ACTION_RENAMED_NEW_NAME -> if (FileChangeEvent.Create in events) {
+                        onEvent(FileChangeEvent.Create, path)
                     }
 
-                    FILE_ACTION_MODIFIED -> {
-                        print(" modified")
-                        if (FileChangeEvent.Modify in events) {
-                            onEvent(FileChangeEvent.Modify, path)
-                        }
+                    FILE_ACTION_MODIFIED -> if (FileChangeEvent.Modify in events) {
+                        onEvent(FileChangeEvent.Modify, path)
                     }
 
-                    FILE_ACTION_REMOVED -> {
-                        print(" removed")
-                        if (FileChangeEvent.Delete in events) {
-                            onEvent(FileChangeEvent.Delete, path)
-                        }
-                    }
-
-                    FILE_ACTION_RENAMED_OLD_NAME -> {
-                        print(" renamed from")
-                        if (FileChangeEvent.Delete in events) {
-                            onEvent(FileChangeEvent.Delete, path)
-                        }
-                    }
-
-                    FILE_ACTION_RENAMED_NEW_NAME -> {
-                        print(" renamed to")
-                        if (FileChangeEvent.Create in events) {
-                            onEvent(FileChangeEvent.Create, path)
-                        }
+                    FILE_ACTION_REMOVED,
+                    FILE_ACTION_RENAMED_OLD_NAME -> if (FileChangeEvent.Delete in events) {
+                        onEvent(FileChangeEvent.Delete, path)
                     }
                 }
-                println()
-                if (event.NextEntryOffset == 0u) {
-                    break
-                }
+                if (event.NextEntryOffset == 0u) break
                 offset += event.NextEntryOffset.toLong()
             }
         }
