@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test
+    runs-on: ${{ matrix.os.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - { runner: ubuntu-latest, name: linuxX64 }
+          - { runner: windows-latest, name: mingwX64 }
+          - { runner: macos-latest, name: macosX64 }
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Install gcc-multilib (Linux)
+        if: ${{ matrix.os.runner == 'ubuntu-latest' }}
+        run: sudo apt install gcc-multilib
+
+      - name: Test
+        run: ./gradlew ${{ matrix.os.name }}Test jvmTest --continue
+
+      - name: Save Test Reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: test-reports-${{ matrix.os.name }}
+          path: '**/build/reports/tests'
+
+  test-android:
+    name: Test (Android)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [ 23, 35 ]
+    steps:
+      - name: checkout
+        uses: actions/checkout@v6
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Test (Android ${{ matrix.api-level }})
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          arch: x86_64
+          script: ./gradlew androidConnectedCheck
+
+      - name: Save Test Reports (Android ${{ matrix.api-level }})
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: test-reports-android-${{ matrix.api-level }}
+          path: '**/build/reports/androidTests'
+
+  publish:
+    name: Publish to GitHub Packages
+    runs-on: ubuntu-latest
+    needs: [ test, test-android ]
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Install gcc-multilib
+        run: sudo apt install gcc-multilib
+
+      - name: Publish to GitHub Packages
+        run: ./gradlew publishAllPublicationsToGitHubPackagesRepository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

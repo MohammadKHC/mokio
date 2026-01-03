@@ -1,0 +1,34 @@
+/*
+ * Copyright 2026 MohammedKHC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.mohammedkhc.io
+
+import kotlinx.cinterop.*
+import okio.Path
+import platform.posix.PATH_MAX
+import platform.posix.readlink
+import platform.posix.symlink
+
+actual fun systemCreateSymbolicLink(source: Path, target: String) =
+    symlink(target, source.toString()).ensureSuccess()
+
+actual fun systemReadSymbolicLink(symlink: Path): String = memScoped {
+    val buffer = allocArray<ByteVar>(PATH_MAX)
+    if (readlink(symlink.toString(), buffer, PATH_MAX.convert()) == -1L) {
+        throw errnoToIOException()
+    }
+    return buffer.toKString()
+}

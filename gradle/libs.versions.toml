@@ -1,0 +1,15 @@
+[versions]
+agp = "8.13.2"
+androidx-test = "1.7.0"
+kotlin = "2.3.0"
+okio = "3.16.4"
+
+[libraries]
+androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidx-test" }
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
+okio-fakefilesystem = { module = "com.squareup.okio:okio-fakefilesystem", version.ref = "okio" }
+
+[plugins]
+androidKmpLibrary = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
+kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
